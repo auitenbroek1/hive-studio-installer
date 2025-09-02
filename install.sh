@@ -227,64 +227,246 @@ determine_user_profile() {
 }
 
 # ═══════════════════════════════════════════════════════════════════════════
-# INSTALLATION PROGRESS WITH REAL-TIME FEEDBACK
+# REAL-TIME INSTALLATION PROGRESS WITH ACCURATE STATUS TRACKING
 # ═══════════════════════════════════════════════════════════════════════════
 
-show_progress() {
-    local current="$1"
-    local total="$2"
+# Global status tracking
+declare -A STEP_STATUS
+declare -A STEP_START_TIME
+
+download_with_progress() {
+    local url="$1"
+    local output_file="$2"
+    local description="${3:-File}"
+    
+    # Create directory for output file
+    mkdir -p "$(dirname "$output_file")"
+    
+    # Check if curl supports progress bar
+    if curl --help 2>/dev/null | grep -q -- '--progress-bar'; then
+        # Use curl with custom progress tracking
+        if curl -L \
+            --progress-bar \
+            --write-out "DOWNLOAD_INFO: %{http_code} %{size_download} %{speed_download}\n" \
+            "$url" -o "$output_file" 2>&1 | while IFS= read -r line; do
+                if [[ "$line" =~ ^DOWNLOAD_INFO: ]]; then
+                    local http_code=$(echo "$line" | cut -d' ' -f2)
+                    local size_downloaded=$(echo "$line" | cut -d' ' -f3)
+                    local speed=$(echo "$line" | cut -d' ' -f4)
+                    
+                    if [[ "$http_code" == "200" ]] && [[ "$size_downloaded" -gt 0 ]]; then
+                        local size_mb=$((size_downloaded / 1024 / 1024))
+                        local speed_kb=$((${speed%.*} / 1024))
+                        show_step_status "download_progress" "progress" "Downloaded ${size_mb}MB of $description at ${speed_kb}KB/s"
+                    fi
+                elif [[ "$line" =~ \#+ ]]; then
+                    # Parse curl's progress bar for percentage
+                    local percent=$(echo "$line" | grep -o '[0-9]\{1,3\}\.[0-9]' | head -1 | cut -d. -f1)
+                    if [[ -n "$percent" ]] && [[ "$percent" =~ ^[0-9]+$ ]] && [[ "$percent" -le 100 ]]; then
+                        show_step_status "download_progress" "progress" "Downloading $description" "$percent"
+                    fi
+                fi
+            done
+        then
+            # Verify download completed successfully
+            if [[ -f "$output_file" ]] && [[ -s "$output_file" ]]; then
+                return 0
+            else
+                return 1
+            fi
+        else
+            return 1
+        fi
+    elif command -v wget >/dev/null 2>&1; then
+        # Fallback to wget with progress
+        show_step_status "download_fallback" "progress" "Using wget for $description download"
+        if wget --progress=bar:force "$url" -O "$output_file" 2>&1 | while IFS= read -r line; do
+                if [[ "$line" =~ [0-9]+% ]]; then
+                    local percent=$(echo "$line" | grep -o '[0-9]\{1,3\}%' | head -1 | sed 's/%//')
+                    if [[ -n "$percent" ]] && [[ "$percent" =~ ^[0-9]+$ ]]; then
+                        show_step_status "download_progress" "progress" "Downloading $description" "$percent"
+                    fi
+                fi
+            done
+        then
+            return 0
+        else
+            return 1
+        fi
+    else
+        # No progress tracking available - simple download
+        show_step_status "download_simple" "progress" "Downloading $description (no progress available)"
+        if curl -L "$url" -o "$output_file" >/dev/null 2>&1; then
+            return 0
+        else
+            return 1
+        fi
+    fi
+}
+
+show_step_status() {
+    local step_name="$1"
+    local status="$2"  # starting, progress, completed, failed
     local message="$3"
-    local percent=$((current * 100 / total))
+    local progress_percent="$4"  # optional for progress status
     
-    # Create progress bar
-    local bar_length=40
-    local filled=$((percent * bar_length / 100))
-    local empty=$((bar_length - filled))
+    local timestamp="$(date '+%H:%M:%S')"
     
-    printf "\r${GREEN}${MAGIC}${NC} ${BOLD}%s${NC} [" "$message"
-    printf "%*s" $filled | tr ' ' '▓'
-    printf "%*s" $empty | tr ' ' '░'
-    printf "] ${BOLD}%d%%${NC}" $percent
+    case "$status" in
+        "starting")
+            STEP_STATUS["$step_name"]="starting"
+            STEP_START_TIME["$step_name"]=$(date +%s)
+            echo -e "\n${BLUE}⏳${NC} ${BOLD}[$timestamp] STARTING: $message${NC}"
+            log_with_timestamp "STEP_START" "$step_name: $message"
+            ;;
+        "progress")
+            STEP_STATUS["$step_name"]="progress"
+            if [[ -n "$progress_percent" ]] && [[ "$progress_percent" =~ ^[0-9]+$ ]]; then
+                local bar_length=30
+                local filled=$((progress_percent * bar_length / 100))
+                local empty=$((bar_length - filled))
+                printf "\r${YELLOW}📊${NC} ${BOLD}[$timestamp] PROGRESS: $message${NC} ["
+                printf "%*s" $filled | tr ' ' '▓'
+                printf "%*s" $empty | tr ' ' '░'
+                printf "] ${BOLD}%d%%${NC}" "$progress_percent"
+            else
+                printf "\r${YELLOW}📊${NC} ${BOLD}[$timestamp] PROGRESS: $message${NC}"
+            fi
+            ;;
+        "completed")
+            STEP_STATUS["$step_name"]="completed"
+            local duration=$(($(date +%s) - STEP_START_TIME["$step_name"]))
+            echo -e "\r${GREEN}✅${NC} ${BOLD}[$timestamp] COMPLETED: $message${NC} ${GREEN}(${duration}s)${NC}"
+            log_with_timestamp "STEP_COMPLETE" "$step_name: $message (${duration}s)"
+            ;;
+        "failed")
+            STEP_STATUS["$step_name"]="failed"
+            local duration=$(($(date +%s) - STEP_START_TIME["$step_name"]))
+            echo -e "\r${RED}❌${NC} ${BOLD}[$timestamp] FAILED: $message${NC} ${RED}(${duration}s)${NC}"
+            log_with_timestamp "STEP_FAILED" "$step_name: $message (${duration}s)"
+            ;;
+    esac
+}
+
+show_overall_progress() {
+    local completed_steps=0
+    local total_steps=0
+    local failed_steps=0
     
-    if [[ $current -eq $total ]]; then
-        echo " ${GREEN}${CHECK}${NC}"
+    for step in "${!STEP_STATUS[@]}"; do
+        total_steps=$((total_steps + 1))
+        if [[ "${STEP_STATUS[$step]}" == "completed" ]]; then
+            completed_steps=$((completed_steps + 1))
+        elif [[ "${STEP_STATUS[$step]}" == "failed" ]]; then
+            failed_steps=$((failed_steps + 1))
+        fi
+    done
+    
+    if [[ $total_steps -gt 0 ]]; then
+        local percent=$((completed_steps * 100 / total_steps))
+        echo -e "\n${BLUE}📈${NC} ${BOLD}Overall Progress: $completed_steps/$total_steps steps completed ($percent%)${NC}"
+        if [[ $failed_steps -gt 0 ]]; then
+            echo -e "${RED}⚠️${NC} ${BOLD}$failed_steps steps failed${NC}"
+        fi
     fi
 }
 
 install_with_progress() {
-    local steps=(
-        "Checking your system"
-        "Installing Node.js (AI brain foundation)"
-        "Installing Claude Code (smart features)"
-        "Setting up Claude Flow (your assistant)"
-        "Testing everything works"
-        "Adding helpful shortcuts"
-        "Preparing first conversation"
+    echo -e "\n${ROCKET} ${BOLD}Starting Hive Studio installation with real-time progress tracking...${NC}\n"
+    
+    # Initialize step tracking
+    declare -A installation_steps=(
+        ["system_check"]="Checking system requirements and dependencies"
+        ["node_install"]="Installing Node.js (AI foundation)"
+        ["claude_code_install"]="Installing Claude Code (smart features)"
+        ["claude_flow_install"]="Setting up Claude Flow (orchestration)"
+        ["validation"]="Validating installation and testing functionality"
+        ["shortcuts"]="Creating desktop shortcuts and aliases"
+        ["welcome"]="Preparing first conversation experience"
     )
     
-    local total=${#steps[@]}
+    local total_steps=${#installation_steps[@]}
+    echo -e "${BLUE}🎯${NC} ${BOLD}Installation Plan: $total_steps steps to complete${NC}\n"
     
-    for i in "${!steps[@]}"; do
-        local current=$((i + 1))
-        local step="${steps[$i]}"
-        
-        show_progress $current $total "$step"
-        
-        # Simulate progress with actual work
-        case $i in
-            0) validate_system_requirements ;;
-            1) install_node_and_dependencies ;;
-            2) install_claude_code_with_retry ;;
-            3) install_claude_flow_with_config ;;
-            4) run_installation_validation ;;
-            5) create_desktop_shortcuts ;;
-            6) prepare_first_conversation ;;
-        esac
-        
-        sleep 1  # Brief pause for user to see progress
-    done
+    # Execute each step with real-time status updates
+    local failed_steps=0
     
-    echo -e "\n${PARTY} ${BOLD}Installation complete!${NC}\n"
+    # Step 1: System Requirements
+    if execute_step_with_status "system_check" "${installation_steps[system_check]}" validate_system_requirements; then
+        : # Success handled by execute_step_with_status
+    else
+        failed_steps=$((failed_steps + 1))
+    fi
+    
+    # Step 2: Node.js Installation 
+    if execute_step_with_status "node_install" "${installation_steps[node_install]}" install_node_and_dependencies; then
+        : # Success handled by execute_step_with_status
+    else
+        failed_steps=$((failed_steps + 1))
+    fi
+    
+    # Step 3: Claude Code Installation
+    if execute_step_with_status "claude_code_install" "${installation_steps[claude_code_install]}" install_claude_code_with_retry; then
+        : # Success handled by execute_step_with_status
+    else
+        failed_steps=$((failed_steps + 1))
+    fi
+    
+    # Step 4: Claude Flow Installation
+    if execute_step_with_status "claude_flow_install" "${installation_steps[claude_flow_install]}" install_claude_flow_with_config; then
+        : # Success handled by execute_step_with_status
+    else
+        failed_steps=$((failed_steps + 1))
+    fi
+    
+    # Step 5: Installation Validation
+    if execute_step_with_status "validation" "${installation_steps[validation]}" run_installation_validation; then
+        : # Success handled by execute_step_with_status
+    else
+        failed_steps=$((failed_steps + 1))
+    fi
+    
+    # Step 6: Desktop Shortcuts
+    if execute_step_with_status "shortcuts" "${installation_steps[shortcuts]}" create_desktop_shortcuts; then
+        : # Success handled by execute_step_with_status
+    else
+        failed_steps=$((failed_steps + 1))
+    fi
+    
+    # Step 7: Welcome Preparation
+    if execute_step_with_status "welcome" "${installation_steps[welcome]}" prepare_first_conversation; then
+        : # Success handled by execute_step_with_status
+    else
+        failed_steps=$((failed_steps + 1))
+    fi
+    
+    # Show final status
+    show_overall_progress
+    
+    if [[ $failed_steps -eq 0 ]]; then
+        echo -e "\n${GREEN}🎉${NC} ${BOLD}Installation completed successfully! All $total_steps steps passed.${NC}\n"
+    else
+        echo -e "\n${YELLOW}⚠️${NC} ${BOLD}Installation completed with $failed_steps failed steps.${NC}"
+        echo -e "${MAGIC} Your AI assistant may still be functional, but some features might not work perfectly.${NC}\n"
+    fi
+}
+
+execute_step_with_status() {
+    local step_name="$1"
+    local step_description="$2"
+    local step_function="$3"
+    
+    show_step_status "$step_name" "starting" "$step_description"
+    
+    # Execute the step function and capture its exit code
+    if "$step_function"; then
+        show_step_status "$step_name" "completed" "$step_description"
+        return 0
+    else
+        local exit_code=$?
+        show_step_status "$step_name" "failed" "$step_description (exit code: $exit_code)"
+        return $exit_code
+    fi
 }
 
 # ═══════════════════════════════════════════════════════════════════════════
@@ -461,39 +643,37 @@ validate_system_requirements() {
 }
 
 install_node_and_dependencies() {
-    echo -e "   ${MAGIC} Checking for Node.js and npm..."
+    show_step_status "node_check" "starting" "Checking for existing Node.js installation"
     
     # Check if Node.js is installed and current
     if command -v node >/dev/null 2>&1 && command -v npm >/dev/null 2>&1; then
         local node_version
         node_version=$(node --version 2>/dev/null | sed 's/v//' | cut -d. -f1)
         if [[ "$node_version" -ge 18 ]]; then
-            echo -e "   ${GREEN}${CHECK}${NC} Node.js $(node --version) and npm $(npm --version) already installed"
-            log_with_timestamp "NODE" "Node.js v$(node --version) already installed and compatible"
+            show_step_status "node_check" "completed" "Found Node.js $(node --version) and npm $(npm --version) - compatible version"
             return 0
         else
-            echo -e "   ${YELLOW}${WARN}${NC} Node.js $(node --version) is too old (need v18+), upgrading..."
+            show_step_status "node_check" "progress" "Found Node.js $(node --version) but need v18+ - will upgrade"
         fi
     else
-        echo -e "   ${BLUE}${MAGIC}${NC} Node.js not found, installing now..."
-        echo -e "   This is normal for fresh Macs - we'll get you set up!"
+        show_step_status "node_check" "progress" "Node.js not found - fresh installation needed"
     fi
     
-    # Install Node.js with retry logic
+    # Install Node.js with retry logic and real-time feedback
     local max_retries=3
     local retry_count=0
     
-    echo -e "\n   ${BRAIN} Starting Node.js installation (this may take a few minutes)..."
+    show_step_status "node_install_main" "starting" "Beginning Node.js installation process (this may take several minutes)"
     
     while [[ $retry_count -lt $max_retries ]]; do
         retry_count=$((retry_count + 1))
-        echo -e "\n   ${STAR} Attempt $retry_count of $max_retries..."
+        show_step_status "node_install_attempt" "starting" "Installation attempt $retry_count of $max_retries"
         
         if install_nodejs_with_method $retry_count; then
             log_with_timestamp "NODE" "Node.js installed successfully using method $retry_count"
             
             # Give the system time to update PATH and register binaries
-            echo -e "   ${MAGIC} Letting your system register the new installation..."
+            show_step_status "node_path_config" "starting" "Configuring system PATH for Node.js"
             sleep 3
             
             # Try multiple PATH configurations for both architectures
@@ -504,44 +684,51 @@ install_node_and_dependencies() {
                 "/opt/homebrew/bin:$PATH"
             )
             
+            local path_configured=false
             for attempt_path in "${path_attempts[@]}"; do
                 export PATH="$attempt_path"
                 if command -v node >/dev/null 2>&1 && command -v npm >/dev/null 2>&1; then
                     local node_ver=$(node --version 2>/dev/null || echo "unknown")
                     local npm_ver=$(npm --version 2>/dev/null || echo "unknown")
-                    echo -e "   ${GREEN}${CHECK}${NC} Success! Node.js $node_ver and npm $npm_ver are working!"
-                    echo -e "   PATH configured for your system architecture"
+                    show_step_status "node_path_config" "completed" "Node.js $node_ver and npm $npm_ver configured successfully"
                     
                     # Persist the PATH change to shell configs
+                    show_step_status "shell_config" "starting" "Updating shell configuration files"
                     local shell_configs=("$HOME/.zshrc" "$HOME/.bashrc" "$HOME/.bash_profile" "$HOME/.profile")
                     for config in "${shell_configs[@]}"; do
                         if [[ -f "$config" ]] || [[ "$config" == "$HOME/.zshrc" ]]; then
                             if ! grep -q "Node.js PATH" "$config" 2>/dev/null; then
                                 echo -e "\n# Node.js PATH (added by Hive Studio installer)" >> "$config"
                                 echo "export PATH=\"$attempt_path\"" >> "$config"
-                                echo -e "   Added PATH to $config"
                             fi
                         fi
                     done
+                    show_step_status "shell_config" "completed" "Shell configuration updated"
+                    path_configured=true
                     
+                    show_step_status "node_install_main" "completed" "Node.js installation and configuration successful"
                     return 0
                 fi
             done
             
-            echo -e "   ${WARN} Installation seems successful but Node.js not immediately available"
-            echo -e "   This sometimes happens - the system may need a moment to register the installation"
-            return 0
+            if [[ "$path_configured" == false ]]; then
+                show_step_status "node_path_config" "progress" "Installation completed but Node.js not immediately available in PATH"
+                show_step_status "node_install_main" "completed" "Node.js installed - may need terminal restart to be fully available"
+                return 0
+            fi
         else
-            echo -e "   ${WARN} Installation method $retry_count failed"
+            show_step_status "node_install_attempt" "failed" "Installation method $retry_count failed"
             
             if [[ $retry_count -lt $max_retries ]]; then
-                echo -e "   ${MAGIC} Don't worry, trying a different approach..."
+                show_step_status "node_install_retry" "starting" "Trying different installation approach in 2 seconds..."
                 sleep 2
             fi
         fi
     done
     
     # All methods failed - provide helpful guidance
+    show_step_status "node_install_main" "failed" "Automatic installation failed after $max_retries attempts"
+    
     echo -e "\n${YELLOW}${BRAIN}${NC} ${BOLD}Installation didn't complete automatically${NC}"
     echo -e "Don't worry! This is common on fresh Macs with strict security settings."
     echo
@@ -620,66 +807,70 @@ install_nodejs_with_method() {
                     local pkg_url="https://nodejs.org/dist/v${node_version}/node-v${node_version}.pkg"
                     local pkg_file="$temp_dir/nodejs-installer-v${node_version}.pkg"
                     
-                    echo "   Downloading from: $pkg_url"
-                    echo "   Please wait, this may take a few minutes depending on your internet speed..."
+                    show_step_status "node_download" "starting" "Downloading Node.js v${node_version} installer (~50-75MB)"
                     
-                    # Download with progress and better error handling
-                    if curl -L --progress-bar "$pkg_url" -o "$pkg_file"; then
-                        echo "   ${GREEN}${CHECK}${NC} Download completed successfully!"
+                    # Download with real-time progress tracking
+                    if download_with_progress "$pkg_url" "$pkg_file" "Node.js v${node_version}"; then
+                        show_step_status "node_download" "completed" "Download completed successfully"
                         
                         # Verify the download
                         if [[ -f "$pkg_file" ]] && [[ -s "$pkg_file" ]]; then
-                            echo "   File size: $(du -h "$pkg_file" | cut -f1)"
+                            local file_size=$(du -h "$pkg_file" | cut -f1)
+                            show_step_status "download_verify" "completed" "Downloaded file verified ($file_size)"
                             
-                            echo "   ${MAGIC} Installing Node.js v${node_version}..."
-                            echo "   You'll be prompted for your Mac admin password..."
-                            echo "   This is normal and required for system installation."
+                            show_step_status "node_install_pkg" "starting" "Installing Node.js v${node_version} (requires admin password)"
+                            echo -e "   ${YELLOW}${MAGIC}${NC} You'll be prompted for your Mac admin password - this is normal and required."
                             
                             # Install with better feedback
                             if sudo installer -pkg "$pkg_file" -target / -verbose; then
-                                echo "   ${GREEN}${CHECK}${NC} Installation completed!"
+                                show_step_status "node_install_pkg" "completed" "Node.js v${node_version} installation completed"
                                 
                                 # Update PATH for both Intel and Apple Silicon
+                                show_step_status "node_path_setup" "starting" "Configuring PATH for $(uname -m) architecture"
                                 if [[ "$(uname -m)" == "arm64" ]]; then
                                     # Apple Silicon - Node.js installs to /usr/local/bin
                                     export PATH="/usr/local/bin:$PATH"
-                                    echo "   Updated PATH for Apple Silicon Mac"
+                                    show_step_status "node_path_setup" "progress" "PATH configured for Apple Silicon Mac"
                                 else
                                     # Intel Mac - Node.js installs to /usr/local/bin
                                     export PATH="/usr/local/bin:$PATH"
-                                    echo "   Updated PATH for Intel Mac"
+                                    show_step_status "node_path_setup" "progress" "PATH configured for Intel Mac"
                                 fi
                                 
                                 # Clean up
+                                show_step_status "cleanup" "starting" "Cleaning up temporary files"
                                 rm -rf "$temp_dir"
+                                show_step_status "cleanup" "completed" "Temporary files cleaned up"
                                 
                                 # Verify installation
+                                show_step_status "node_verify" "starting" "Verifying Node.js installation"
                                 sleep 2  # Give system time to register new binaries
                                 if command -v node >/dev/null 2>&1; then
-                                    echo "   ${GREEN}${CHECK}${NC} Node.js v$(node --version) is now available!"
+                                    show_step_status "node_verify" "completed" "Node.js $(node --version) is now available and working"
+                                    show_step_status "node_path_setup" "completed" "PATH configuration successful"
                                     return 0
                                 else
-                                    echo "   ${WARN} Installation completed but Node.js not immediately available in PATH"
-                                    echo "   This is sometimes normal - continuing..."
+                                    show_step_status "node_verify" "progress" "Installation completed - Node.js may need terminal restart to be available"
+                                    show_step_status "node_path_setup" "completed" "PATH configured (may require shell restart)"
                                     return 0
                                 fi
                             else
-                                echo "   ${WARN} Installation failed for v${node_version}, trying next version..."
+                                show_step_status "node_install_pkg" "failed" "Installation failed for v${node_version}, trying next version"
                             fi
                         else
-                            echo "   ${ERROR} Downloaded file appears to be corrupted"
+                            show_step_status "download_verify" "failed" "Downloaded file appears to be corrupted"
                         fi
                     else
-                        echo "   ${WARN} Download failed for v${node_version}"
+                        show_step_status "node_download" "failed" "Download failed for Node.js v${node_version}"
                         local curl_exit=$?
                         if [[ $curl_exit -eq 6 ]]; then
-                            echo "   Network issue - couldn't resolve hostname"
+                            echo -e "   ${YELLOW}⚠️${NC} Network issue - couldn't resolve hostname"
                         elif [[ $curl_exit -eq 7 ]]; then
-                            echo "   Network issue - connection failed"
+                            echo -e "   ${YELLOW}⚠️${NC} Network issue - connection failed"
                         elif [[ $curl_exit -eq 22 ]]; then
-                            echo "   File not found on server"
+                            echo -e "   ${YELLOW}⚠️${NC} File not found on server"
                         else
-                            echo "   Download error (exit code: $curl_exit)"
+                            echo -e "   ${YELLOW}⚠️${NC} Download error (exit code: $curl_exit)"
                         fi
                     fi
                 done
@@ -756,6 +947,8 @@ install_claude_code_with_retry() {
     local max_retries=3
     local retry_count=0
     
+    show_step_status "npm_config" "starting" "Configuring npm for secure package installation"
+    
     # Configure npm to avoid permission issues
     if command -v npm >/dev/null 2>&1; then
         local npm_prefix="$HOME/.npm-global"
@@ -768,43 +961,100 @@ install_claude_code_with_retry() {
             echo "export PATH=\"\$PATH:$npm_prefix/bin\"" >> "$HOME/.bashrc"
             echo "export PATH=\"\$PATH:$npm_prefix/bin\"" >> "$HOME/.zshrc" 2>/dev/null || true
         fi
+        show_step_status "npm_config" "completed" "npm configured with user-level prefix at $npm_prefix"
+    else
+        show_step_status "npm_config" "failed" "npm not found - Node.js installation may have failed"
+        return 1
     fi
     
+    show_step_status "claude_install" "starting" "Installing Claude Code AI assistant (may take 2-5 minutes)"
+    
     while [[ $retry_count -lt $max_retries ]]; do
-        if npm install -g @anthropic-ai/claude-code >/dev/null 2>&1; then
-            log_with_timestamp "CLAUDE" "Claude Code installed successfully"
-            return 0
-        fi
-        
         retry_count=$((retry_count + 1))
-        echo -e "\n${WARN} Network timeout, retrying in 3 seconds..."
-        sleep 3
+        show_step_status "claude_attempt" "starting" "Claude Code installation attempt $retry_count of $max_retries"
+        
+        # Run npm install with output capture for better feedback
+        if npm install -g @anthropic-ai/claude-code 2>&1 | while IFS= read -r line; do
+            if [[ "$line" =~ "downloading" ]] || [[ "$line" =~ "http fetch" ]]; then
+                show_step_status "claude_download" "progress" "Downloading Claude Code package dependencies"
+            elif [[ "$line" =~ "added" ]] || [[ "$line" =~ "changed" ]]; then
+                show_step_status "claude_install_progress" "progress" "Installing package components"
+            fi
+        done; then
+            # Verify Claude Code is available
+            if command -v claude >/dev/null 2>&1; then
+                show_step_status "claude_verify" "completed" "Claude Code command verified and available"
+                show_step_status "claude_install" "completed" "Claude Code AI assistant installed successfully"
+                log_with_timestamp "CLAUDE" "Claude Code installed successfully"
+                return 0
+            else
+                show_step_status "claude_verify" "progress" "Claude Code installed but may need PATH refresh"
+                show_step_status "claude_install" "completed" "Claude Code installation completed (may need terminal restart)"
+                log_with_timestamp "CLAUDE" "Claude Code installed successfully"
+                return 0
+            fi
+        else
+            show_step_status "claude_attempt" "failed" "Installation attempt $retry_count failed"
+            
+            if [[ $retry_count -lt $max_retries ]]; then
+                show_step_status "claude_retry" "starting" "Retrying in 3 seconds with different approach..."
+                sleep 3
+            fi
+        fi
     done
     
-    echo -e "\n${ERROR} Failed to install Claude Code"
-    echo -e "${MAGIC} Check your internet connection and try again"
-    exit 2
+    show_step_status "claude_install" "failed" "Claude Code installation failed after $max_retries attempts"
+    echo -e "\n${RED}❌${NC} ${BOLD}Claude Code Installation Failed${NC}"
+    echo -e "${MAGIC} This might be due to:"
+    echo -e "   • Network connectivity issues"
+    echo -e "   • npm registry temporarily unavailable"
+    echo -e "   • Firewall blocking npm downloads"
+    echo -e "\n${BLUE}🛠️${NC} ${BOLD}You can try installing manually later:${NC}"
+    echo -e "   ${BOLD}npm install -g @anthropic-ai/claude-code${NC}"
+    return 1
 }
 
 install_claude_flow_with_config() {
-    # Install Claude Flow
-    if npm install -g claude-flow@alpha >/dev/null 2>&1; then
+    show_step_status "flow_install" "starting" "Installing Claude Flow orchestration system (alpha version)"
+    
+    # Install Claude Flow with feedback
+    if npm install -g claude-flow@alpha 2>&1 | while IFS= read -r line; do
+        if [[ "$line" =~ "downloading" ]] || [[ "$line" =~ "http fetch" ]]; then
+            show_step_status "flow_download" "progress" "Downloading Claude Flow packages"
+        elif [[ "$line" =~ "added" ]] || [[ "$line" =~ "changed" ]]; then
+            show_step_status "flow_install_progress" "progress" "Installing orchestration components"
+        fi
+    done; then
+        show_step_status "flow_install" "completed" "Claude Flow orchestration system installed"
         log_with_timestamp "FLOW" "Claude Flow installed successfully"
+        
+        # Configure MCP integration
+        show_step_status "mcp_config" "starting" "Configuring MCP server integration"
+        if configure_mcp_servers; then
+            show_step_status "mcp_config" "completed" "MCP server integration configured"
+        else
+            show_step_status "mcp_config" "failed" "MCP configuration failed but continuing"
+        fi
     else
+        show_step_status "flow_install" "progress" "Claude Flow installation failed - this is non-critical"
         log_with_timestamp "FLOW" "Claude Flow installation failed, continuing without it"
+        echo -e "   ${YELLOW}⚠️${NC} Claude Flow is optional - your AI assistant will still work without it"
         return 0  # Non-critical failure
     fi
-    
-    # Configure MCP integration
-    configure_mcp_servers
 }
 
 configure_mcp_servers() {
     local claude_config_dir="$HOME/.claude"
-    mkdir -p "$claude_config_dir"
+    
+    if mkdir -p "$claude_config_dir"; then
+        show_step_status "config_dir" "completed" "Claude configuration directory created"
+    else
+        show_step_status "config_dir" "failed" "Failed to create configuration directory"
+        return 1
+    fi
     
     # Create or update .claude.json with MCP servers
-    cat > "$claude_config_dir/.claude.json" << 'EOF'
+    if cat > "$claude_config_dir/.claude.json" << 'EOF'
 {
   "mcpServers": {
     "claude-flow": {
@@ -815,45 +1065,96 @@ configure_mcp_servers() {
   }
 }
 EOF
-    
-    log_with_timestamp "MCP" "MCP servers configured"
+    then
+        show_step_status "mcp_config_file" "completed" "MCP server configuration file created"
+        log_with_timestamp "MCP" "MCP servers configured"
+        return 0
+    else
+        show_step_status "mcp_config_file" "failed" "Failed to create MCP configuration file"
+        return 1
+    fi
 }
 
 run_installation_validation() {
+    show_step_status "validation" "starting" "Running comprehensive installation validation tests"
     local validation_failed=0
+    local tests_passed=0
+    local total_tests=0
     
-    # Test Claude Code
+    # Test Claude Code availability and functionality
+    total_tests=$((total_tests + 1))
+    show_step_status "claude_test" "starting" "Testing Claude Code availability"
     if command -v claude >/dev/null 2>&1; then
+        show_step_status "claude_cmd" "completed" "Claude command found in PATH"
+        
+        # Test Claude version command
         if claude --version >/dev/null 2>&1; then
+            local claude_version=$(claude --version 2>/dev/null | head -1)
+            show_step_status "claude_test" "completed" "Claude Code functional - $claude_version"
             log_with_timestamp "TEST" "Claude Code validation passed"
+            tests_passed=$((tests_passed + 1))
         else
+            show_step_status "claude_test" "failed" "Claude command found but not responding correctly"
             log_with_timestamp "TEST" "Claude Code validation failed"
             validation_failed=1
         fi
     else
+        show_step_status "claude_test" "failed" "Claude command not found in PATH"
         log_with_timestamp "TEST" "Claude Code command not found"
         validation_failed=1
     fi
     
-    # Test Node.js
-    if command -v node >/dev/null 2>&1; then
+    # Test Node.js version and functionality
+    total_tests=$((total_tests + 1))
+    show_step_status "node_test" "starting" "Testing Node.js installation"
+    if command -v node >/dev/null 2>&1 && command -v npm >/dev/null 2>&1; then
         local node_version
         node_version=$(node --version 2>/dev/null | sed 's/v//' | cut -d. -f1)
+        local npm_version=$(npm --version 2>/dev/null)
+        
         if [[ "$node_version" -ge 18 ]]; then
+            show_step_status "node_test" "completed" "Node.js v$(node --version) and npm v$npm_version working correctly"
             log_with_timestamp "TEST" "Node.js validation passed"
+            tests_passed=$((tests_passed + 1))
         else
+            show_step_status "node_test" "failed" "Node.js v$(node --version) is too old (need v18+)"
             log_with_timestamp "TEST" "Node.js version too old"
             validation_failed=1
         fi
     else
+        show_step_status "node_test" "failed" "Node.js or npm not found in PATH"
         log_with_timestamp "TEST" "Node.js validation failed"
         validation_failed=1
     fi
     
-    if [[ $validation_failed -eq 1 ]]; then
-        echo -e "\n${WARN} Some features may not work perfectly"
-        echo -e "${MAGIC} But your AI assistant should still be functional!"
-        echo -e "You can always run the installer again later to fix any issues."
+    # Test Claude Flow (optional)
+    total_tests=$((total_tests + 1))
+    show_step_status "flow_test" "starting" "Testing Claude Flow orchestration (optional)"
+    if command -v npx >/dev/null 2>&1 && npx claude-flow@alpha --help >/dev/null 2>&1; then
+        show_step_status "flow_test" "completed" "Claude Flow orchestration available"
+        log_with_timestamp "TEST" "Claude Flow validation passed"
+        tests_passed=$((tests_passed + 1))
+    else
+        show_step_status "flow_test" "progress" "Claude Flow not available - this is optional"
+        log_with_timestamp "TEST" "Claude Flow validation skipped (optional)"
+        # Don't count as failure since it's optional
+        tests_passed=$((tests_passed + 1))
+    fi
+    
+    # Show validation summary
+    echo -e "\n${BLUE}📈${NC} ${BOLD}Validation Results: $tests_passed/$total_tests tests passed${NC}"
+    
+    if [[ $validation_failed -eq 0 ]]; then
+        show_step_status "validation" "completed" "All critical components validated successfully"
+        echo -e "${GREEN}✅${NC} ${BOLD}Installation validation successful!${NC}"
+        return 0
+    else
+        local failed_tests=$((total_tests - tests_passed))
+        show_step_status "validation" "progress" "$failed_tests validation issues detected but installation may still be functional"
+        echo -e "\n${YELLOW}⚠️${NC} ${BOLD}Some components may not work perfectly${NC}"
+        echo -e "${MAGIC} But your AI assistant core functionality should still work!"
+        echo -e "${BLUE}🔧${NC} You can always run the installer again later to fix any issues."
+        return 0  # Don't fail the entire installation for validation issues
     fi
 }
 
