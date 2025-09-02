@@ -217,13 +217,13 @@ conduct_needs_assessment() {
     # Skip the fake wizard - proceed directly with default profile
     export SELECTED_PROFILE="novice"
     echo -e "\n${ROCKET} ${BOLD}Setting up your Hive Studio installation...${NC}\n"
-    log_with_timestamp "PROFILE" "Using default profile: novice (Beginner-Friendly Setup)"
+    log_with_timestamp "PROFILE" "Using default installation profile"
 }
 
 determine_user_profile() {
     # This function is no longer used - keeping for compatibility
     export SELECTED_PROFILE="novice"
-    log_with_timestamp "PROFILE" "Using default profile: novice (Beginner-Friendly Setup)"
+    log_with_timestamp "PROFILE" "Using default installation profile"
 }
 
 # ═══════════════════════════════════════════════════════════════════════════
