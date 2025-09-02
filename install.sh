@@ -67,6 +67,17 @@ installation_error_handler() {
     echo -e "${BLUE}${MAGIC}${NC} Something unexpected happened, but I'm here to help..."
     echo
     
+    # Get the last few log entries for context
+    local recent_log=""
+    if [[ -f "$INSTALL_LOG" ]]; then
+        recent_log=$(tail -3 "$INSTALL_LOG" 2>/dev/null | grep -v "^$" | head -2)
+        if [[ -n "$recent_log" ]]; then
+            echo -e "${BLUE}${BRAIN}${NC} ${BOLD}What was happening:${NC}"
+            echo "$recent_log" | sed 's/^/   /'
+            echo
+        fi
+    fi
+    
     case $exit_code in
         1) 
             echo -e "${YELLOW}${BRAIN}${NC} ${BOLD}This looks like a permission issue${NC}"
@@ -76,23 +87,37 @@ installation_error_handler() {
             echo "   • Then run the installer again"
             ;;
         2)
-            echo -e "${YELLOW}${BRAIN}${NC} ${BOLD}Network connection issue detected${NC}"
-            echo "   ${MAGIC} Here's what to try:"
-            echo "   • Check your internet connection"
-            echo "   • Wait a minute and try again"
-            echo "   • If you're at work, you might need IT help with firewalls"
+            if echo "$recent_log" | grep -q -i "node\|npm\|curl\|download"; then
+                echo -e "${YELLOW}${BRAIN}${NC} ${BOLD}Node.js installation issue${NC}"
+                echo "   ${MAGIC} This is common on fresh Macs. Try these steps:"
+                echo "   • Manual install from: ${BOLD}https://nodejs.org${NC}"
+                echo "   • Download the macOS .pkg file and double-click it"
+                echo "   • Then restart this installer"
+                echo "   • Or check your network connection and try again"
+            else
+                echo -e "${YELLOW}${BRAIN}${NC} ${BOLD}Network or download issue${NC}"
+                echo "   ${MAGIC} Here's what to try:"
+                echo "   • Check your internet connection"
+                echo "   • Wait a minute and try again"
+                echo "   • If you're at work, you might need IT help with firewalls"
+                echo "   • Try the manual Node.js installation method"
+            fi
             ;;
         127)
             echo -e "${YELLOW}${BRAIN}${NC} ${BOLD}Missing software detected${NC}"
             echo "   ${MAGIC} I can help install what's needed:"
             echo "   • Run the installer with: ${BOLD}--auto-install-dependencies${NC}"
             echo "   • Or follow the setup guide in the documentation"
+            echo "   • Make sure you have curl installed"
             ;;
         *)
             echo -e "${YELLOW}${BRAIN}${NC} ${BOLD}Unexpected issue, but we have solutions${NC}"
             echo "   ${MAGIC} Try these recovery steps:"
-            echo "   • Check the log: ${BOLD}tail -20 $INSTALL_LOG${NC}"
+            echo "   • Check the full log: ${BOLD}tail -20 $INSTALL_LOG${NC}"
             echo "   • Run in safe mode: ${BOLD}./$(basename "$0") --safe-mode${NC}"
+            if [[ -f "$INSTALL_LOG" ]]; then
+                echo "   • Look for specific error messages in: ${BOLD}$INSTALL_LOG${NC}"
+            fi
             echo "   • Visit our documentation for troubleshooting"
             ;;
     esac
@@ -101,7 +126,10 @@ installation_error_handler() {
     echo -e "${GREEN}${HEART}${NC} ${BOLD}Remember: Every AI expert started as a beginner${NC}"
     echo -e "${BLUE}${SHIELD}${NC} You're not alone - our community is here to help!"
     echo
-    echo -e "${STAR} Need immediate help? Check our documentation and community resources"
+    echo -e "${STAR} ${BOLD}Common solutions that work:${NC}"
+    echo -e "   • Fresh Macs often need manual Node.js installation"
+    echo -e "   • The installer will pick up where it left off"
+    echo -e "   • Check the log file for detailed error information"
     
     professional_cleanup
     exit $exit_code
@@ -110,7 +138,13 @@ installation_error_handler() {
 professional_cleanup() {
     echo -e "\n${YELLOW}${WARN}${NC} ${BOLD}Cleaning up...${NC}"
     rm -f "$INSTALL_LOCK_FILE" 2>/dev/null || true
+    # Clean up any temporary Node.js download files
+    rm -rf /tmp/nodejs-install-* 2>/dev/null || true
     log_with_timestamp "CLEANUP" "Installation cleanup completed"
+}
+
+installation_cleanup() {
+    professional_cleanup
 }
 
 # ═══════════════════════════════════════════════════════════════════════════
@@ -310,9 +344,9 @@ show_progress() {
 install_with_progress() {
     local steps=(
         "Checking your system"
-        "Downloading AI brain"
-        "Installing smart features"
-        "Setting up your assistant"
+        "Installing Node.js (AI brain foundation)"
+        "Installing Claude Code (smart features)"
+        "Setting up Claude Flow (your assistant)"
         "Testing everything works"
         "Adding helpful shortcuts"
         "Preparing first conversation"
@@ -381,56 +415,295 @@ validate_system_requirements() {
 }
 
 install_node_and_dependencies() {
+    echo -e "   ${MAGIC} Checking for Node.js and npm..."
+    
     # Check if Node.js is installed and current
-    if command -v node >/dev/null 2>&1; then
+    if command -v node >/dev/null 2>&1 && command -v npm >/dev/null 2>&1; then
         local node_version
         node_version=$(node --version 2>/dev/null | sed 's/v//' | cut -d. -f1)
         if [[ "$node_version" -ge 18 ]]; then
-            log_with_timestamp "NODE" "Node.js v$(node --version) already installed"
+            echo -e "   ${GREEN}${CHECK}${NC} Node.js $(node --version) and npm $(npm --version) already installed"
+            log_with_timestamp "NODE" "Node.js v$(node --version) already installed and compatible"
             return 0
+        else
+            echo -e "   ${YELLOW}${WARN}${NC} Node.js $(node --version) is too old (need v18+), upgrading..."
         fi
+    else
+        echo -e "   ${BLUE}${MAGIC}${NC} Node.js not found, installing now..."
+        echo -e "   This is normal for fresh Macs - we'll get you set up!"
     fi
     
     # Install Node.js with retry logic
     local max_retries=3
     local retry_count=0
     
+    echo -e "\n   ${BRAIN} Starting Node.js installation (this may take a few minutes)..."
+    
     while [[ $retry_count -lt $max_retries ]]; do
-        if install_nodejs_with_method; then
-            log_with_timestamp "NODE" "Node.js installed successfully"
-            return 0
-        fi
-        
         retry_count=$((retry_count + 1))
-        echo -e "\n${WARN} Attempt $retry_count failed, trying different method..."
-        sleep 2
+        echo -e "\n   ${STAR} Attempt $retry_count of $max_retries..."
+        
+        if install_nodejs_with_method $retry_count; then
+            log_with_timestamp "NODE" "Node.js installed successfully using method $retry_count"
+            
+            # Give the system time to update PATH and register binaries
+            echo -e "   ${MAGIC} Letting your system register the new installation..."
+            sleep 3
+            
+            # Try multiple PATH configurations for both architectures
+            local path_attempts=(
+                "/usr/local/bin:/opt/homebrew/bin:$PATH"
+                "/opt/homebrew/bin:/usr/local/bin:$PATH"
+                "/usr/local/bin:$PATH"
+                "/opt/homebrew/bin:$PATH"
+            )
+            
+            for attempt_path in "${path_attempts[@]}"; do
+                export PATH="$attempt_path"
+                if command -v node >/dev/null 2>&1 && command -v npm >/dev/null 2>&1; then
+                    local node_ver=$(node --version 2>/dev/null || echo "unknown")
+                    local npm_ver=$(npm --version 2>/dev/null || echo "unknown")
+                    echo -e "   ${GREEN}${CHECK}${NC} Success! Node.js $node_ver and npm $npm_ver are working!"
+                    echo -e "   PATH configured for your system architecture"
+                    
+                    # Persist the PATH change to shell configs
+                    local shell_configs=("$HOME/.zshrc" "$HOME/.bashrc" "$HOME/.bash_profile" "$HOME/.profile")
+                    for config in "${shell_configs[@]}"; do
+                        if [[ -f "$config" ]] || [[ "$config" == "$HOME/.zshrc" ]]; then
+                            if ! grep -q "Node.js PATH" "$config" 2>/dev/null; then
+                                echo -e "\n# Node.js PATH (added by Hive Studio installer)" >> "$config"
+                                echo "export PATH=\"$attempt_path\"" >> "$config"
+                                echo -e "   Added PATH to $config"
+                            fi
+                        fi
+                    done
+                    
+                    return 0
+                fi
+            done
+            
+            echo -e "   ${WARN} Installation seems successful but Node.js not immediately available"
+            echo -e "   This sometimes happens - the system may need a moment to register the installation"
+            return 0
+        else
+            echo -e "   ${WARN} Installation method $retry_count failed"
+            
+            if [[ $retry_count -lt $max_retries ]]; then
+                echo -e "   ${MAGIC} Don't worry, trying a different approach..."
+                sleep 2
+            fi
+        fi
     done
     
-    echo -e "\n${ERROR} Failed to install Node.js after $max_retries attempts"
-    echo -e "${MAGIC} Please install Node.js manually from: ${BOLD}https://nodejs.org${NC}"
+    # All methods failed - provide helpful guidance
+    echo -e "\n${YELLOW}${BRAIN}${NC} ${BOLD}Installation didn't complete automatically${NC}"
+    echo -e "Don't worry! This is common on fresh Macs with strict security settings."
+    echo
+    echo -e "${BLUE}${MAGIC}${NC} ${BOLD}Here's the easiest way to finish this:${NC}"
+    echo
+    
+    if [[ "$OSTYPE" == "darwin"* ]]; then
+        echo -e "${GREEN}1.${NC} Open Safari and go to: ${BOLD}https://nodejs.org${NC}"
+        echo -e "${GREEN}2.${NC} Click the big green button that says 'Download for macOS'"
+        echo -e "${GREEN}3.${NC} When it downloads, double-click the .pkg file in your Downloads"
+        echo -e "${GREEN}4.${NC} Click 'Continue' through the installer (it's very simple)"
+        echo -e "${GREEN}5.${NC} When done, close this terminal and run the installer again"
+        echo
+        echo -e "${STAR} ${BOLD}Why this happens:${NC} Fresh Macs have security settings that can"
+        echo -e "   block automated downloads. The manual method always works!"
+    else
+        echo -e "${GREEN}1.${NC} Visit: ${BOLD}https://nodejs.org${NC}"
+        echo -e "${GREEN}2.${NC} Download the Linux installer for your system"
+        echo -e "${GREEN}3.${NC} Or try: ${BOLD}curl -fsSL https://deb.nodesource.com/setup_lts.x | sudo -E bash -${NC}"
+        echo -e "${GREEN}4.${NC} Then: ${BOLD}sudo apt-get install -y nodejs${NC}"
+    fi
+    
+    echo
+    echo -e "${HEART} ${BOLD}After installing Node.js, just run this installer again!${NC}"
+    echo -e "${MAGIC} It will pick up where we left off and finish the setup."
+    
+    log_with_timestamp "NODE" "Node.js installation requires manual intervention"
     exit 2
 }
 
 install_nodejs_with_method() {
-    # Try Homebrew first on macOS
-    if [[ "$OSTYPE" == "darwin"* ]] && command -v brew >/dev/null 2>&1; then
-        brew install node >/dev/null 2>&1 && return 0
-    fi
+    local method_num=${1:-1}
+    local temp_dir="/tmp/nodejs-install-$$"
     
-    # Try package manager on Linux
-    if command -v apt-get >/dev/null 2>&1; then
-        sudo apt-get update >/dev/null 2>&1 && sudo apt-get install -y nodejs npm >/dev/null 2>&1 && return 0
-    elif command -v dnf >/dev/null 2>&1; then
-        sudo dnf install -y nodejs npm >/dev/null 2>&1 && return 0
-    fi
+    echo -e "\n${BLUE}${MAGIC}${NC} Trying installation method $method_num..."
     
-    # Fallback to NodeSource script
-    if command -v curl >/dev/null 2>&1; then
-        curl -fsSL https://deb.nodesource.com/setup_lts.x | sudo -E bash - >/dev/null 2>&1 &&
-        sudo apt-get install -y nodejs >/dev/null 2>&1 && return 0
-    fi
-    
-    return 1
+    case $method_num in
+        1)
+            # Method 1: Try Homebrew on macOS (if available)
+            if [[ "$OSTYPE" == "darwin"* ]] && command -v brew >/dev/null 2>&1; then
+                echo "   ${MAGIC} Using Homebrew to install Node.js..."
+                echo "   This might take a few minutes..."
+                if brew install node; then
+                    echo "   ${GREEN}${CHECK}${NC} Homebrew installation completed"
+                    return 0
+                else
+                    echo "   ${WARN} Homebrew installation failed, trying next method..."
+                    return 1
+                fi
+            fi
+            return 1
+            ;;
+        2)
+            # Method 2: Official Node.js installer for macOS
+            if [[ "$OSTYPE" == "darwin"* ]]; then
+                echo "   ${MAGIC} Downloading official Node.js installer..."
+                echo "   This is the most reliable method for fresh Macs..."
+                mkdir -p "$temp_dir"
+                
+                # Detect architecture
+                local arch=""
+                if [[ "$(uname -m)" == "arm64" ]]; then
+                    arch="arm64"
+                    echo "   Detected Apple Silicon Mac (M1/M2/M3)"
+                else
+                    arch="x64"
+                    echo "   Detected Intel Mac"
+                fi
+                
+                # Try both v22 LTS and v20 LTS as fallback
+                local versions=("22.11.0" "20.18.0")
+                
+                for node_version in "${versions[@]}"; do
+                    echo "   Trying Node.js v${node_version}..."
+                    
+                    local pkg_url="https://nodejs.org/dist/v${node_version}/node-v${node_version}.pkg"
+                    local pkg_file="$temp_dir/nodejs-installer-v${node_version}.pkg"
+                    
+                    echo "   Downloading from: $pkg_url"
+                    echo "   Please wait, this may take a few minutes depending on your internet speed..."
+                    
+                    # Download with progress and better error handling
+                    if curl -L --progress-bar "$pkg_url" -o "$pkg_file"; then
+                        echo "   ${GREEN}${CHECK}${NC} Download completed successfully!"
+                        
+                        # Verify the download
+                        if [[ -f "$pkg_file" ]] && [[ -s "$pkg_file" ]]; then
+                            echo "   File size: $(du -h "$pkg_file" | cut -f1)"
+                            
+                            echo "   ${MAGIC} Installing Node.js v${node_version}..."
+                            echo "   You'll be prompted for your Mac admin password..."
+                            echo "   This is normal and required for system installation."
+                            
+                            # Install with better feedback
+                            if sudo installer -pkg "$pkg_file" -target / -verbose; then
+                                echo "   ${GREEN}${CHECK}${NC} Installation completed!"
+                                
+                                # Update PATH for both Intel and Apple Silicon
+                                if [[ "$(uname -m)" == "arm64" ]]; then
+                                    # Apple Silicon - Node.js installs to /usr/local/bin
+                                    export PATH="/usr/local/bin:$PATH"
+                                    echo "   Updated PATH for Apple Silicon Mac"
+                                else
+                                    # Intel Mac - Node.js installs to /usr/local/bin
+                                    export PATH="/usr/local/bin:$PATH"
+                                    echo "   Updated PATH for Intel Mac"
+                                fi
+                                
+                                # Clean up
+                                rm -rf "$temp_dir"
+                                
+                                # Verify installation
+                                sleep 2  # Give system time to register new binaries
+                                if command -v node >/dev/null 2>&1; then
+                                    echo "   ${GREEN}${CHECK}${NC} Node.js v$(node --version) is now available!"
+                                    return 0
+                                else
+                                    echo "   ${WARN} Installation completed but Node.js not immediately available in PATH"
+                                    echo "   This is sometimes normal - continuing..."
+                                    return 0
+                                fi
+                            else
+                                echo "   ${WARN} Installation failed for v${node_version}, trying next version..."
+                            fi
+                        else
+                            echo "   ${ERROR} Downloaded file appears to be corrupted"
+                        fi
+                    else
+                        echo "   ${WARN} Download failed for v${node_version}"
+                        local curl_exit=$?
+                        if [[ $curl_exit -eq 6 ]]; then
+                            echo "   Network issue - couldn't resolve hostname"
+                        elif [[ $curl_exit -eq 7 ]]; then
+                            echo "   Network issue - connection failed"
+                        elif [[ $curl_exit -eq 22 ]]; then
+                            echo "   File not found on server"
+                        else
+                            echo "   Download error (exit code: $curl_exit)"
+                        fi
+                    fi
+                done
+                
+                echo "   ${ERROR} All Node.js versions failed to install"
+                rm -rf "$temp_dir"
+            fi
+            return 1
+            ;;
+        3)
+            # Method 3: Install Homebrew first, then Node.js
+            if [[ "$OSTYPE" == "darwin"* ]] && ! command -v brew >/dev/null 2>&1; then
+                echo "   ${MAGIC} Installing Homebrew package manager first..."
+                echo "   This gives you access to thousands of development tools!"
+                echo "   You'll be prompted for your password - this is normal and safe."
+                
+                if /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"; then
+                    echo "   ${GREEN}${CHECK}${NC} Homebrew installed successfully!"
+                    
+                    # Add Homebrew to PATH for both architectures
+                    if [[ "$(uname -m)" == "arm64" ]] && [[ -f "/opt/homebrew/bin/brew" ]]; then
+                        eval "$(/opt/homebrew/bin/brew shellenv)"
+                        export PATH="/opt/homebrew/bin:$PATH"
+                        echo "   Configured Homebrew for Apple Silicon"
+                    elif [[ -f "/usr/local/bin/brew" ]]; then
+                        export PATH="/usr/local/bin:$PATH"
+                        echo "   Configured Homebrew for Intel Mac"
+                    fi
+                    
+                    echo "   ${MAGIC} Installing Node.js with Homebrew..."
+                    if brew install node; then
+                        echo "   ${GREEN}${CHECK}${NC} Node.js installed via Homebrew!"
+                        return 0
+                    else
+                        echo "   ${WARN} Failed to install Node.js via Homebrew"
+                    fi
+                else
+                    echo "   ${WARN} Homebrew installation failed"
+                fi
+            fi
+            
+            # Linux package managers (for completeness)
+            if [[ "$OSTYPE" == "linux-gnu"* ]]; then
+                if command -v apt-get >/dev/null 2>&1; then
+                    echo "   ${MAGIC} Using apt-get (Ubuntu/Debian)..."
+                    if sudo apt-get update && sudo apt-get install -y nodejs npm; then
+                        echo "   ${GREEN}${CHECK}${NC} Node.js installed via apt-get!"
+                        return 0
+                    fi
+                elif command -v dnf >/dev/null 2>&1; then
+                    echo "   ${MAGIC} Using dnf (Fedora)..."
+                    if sudo dnf install -y nodejs npm; then
+                        echo "   ${GREEN}${CHECK}${NC} Node.js installed via dnf!"
+                        return 0
+                    fi
+                elif command -v yum >/dev/null 2>&1; then
+                    echo "   ${MAGIC} Using yum (RHEL/CentOS)..."
+                    if sudo yum install -y nodejs npm; then
+                        echo "   ${GREEN}${CHECK}${NC} Node.js installed via yum!"
+                        return 0
+                    fi
+                fi
+            fi
+            return 1
+            ;;
+        *)
+            echo "   ${ERROR} Unknown installation method: $method_num"
+            return 1
+            ;;
+    esac
 }
 
 install_claude_code_with_retry() {
