@@ -1,0 +1,207 @@
+name: ✨ Feature Request
+description: Suggest a new feature or enhancement for Hive Studio Installer
+title: "[FEATURE]: "
+labels: ["enhancement", "feature-request"]
+assignees: []
+
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thank you for suggesting a new feature! 
+        
+        Your ideas help make Hive Studio Installer better for everyone.
+
+  - type: checkboxes
+    id: pre-check
+    attributes:
+      label: Pre-submission Checklist
+      description: Please verify you've completed these steps
+      options:
+        - label: I have searched existing issues and feature requests
+          required: true
+        - label: I have reviewed the [documentation](../README.md) and [roadmap](../docs/ROADMAP.md)
+          required: true
+        - label: This feature aligns with the project's goals
+          required: true
+
+  - type: textarea
+    id: feature-summary
+    attributes:
+      label: Feature Summary
+      description: A brief, clear summary of the feature you'd like to see
+      placeholder: "Add support for..."
+    validations:
+      required: true
+
+  - type: dropdown
+    id: feature-category
+    attributes:
+      label: Feature Category
+      description: What category does this feature fall into?
+      options:
+        - Installation & Setup
+        - Security & Authentication
+        - AI/ML Tools Integration
+        - Development Environment
+        - Enterprise Features
+        - User Experience
+        - Performance & Optimization
+        - Documentation
+        - Testing & Quality Assurance
+        - Other
+    validations:
+      required: true
+
+  - type: textarea
+    id: problem-statement
+    attributes:
+      label: Problem Statement
+      description: What problem does this feature solve? What's the current pain point?
+      placeholder: |
+        Currently, users struggle with...
+        This creates problems because...
+        Without this feature, developers must...
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposed-solution
+    attributes:
+      label: Proposed Solution
+      description: Describe your ideal solution in detail
+      placeholder: |
+        I would like the installer to...
+        This could work by...
+        The user experience would be...
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternative Solutions
+      description: Describe any alternative solutions or features you've considered
+      placeholder: |
+        Alternative approaches could include...
+        I also considered...
+        Other tools solve this by...
+
+  - type: dropdown
+    id: user-impact
+    attributes:
+      label: User Impact
+      description: How many users would benefit from this feature?
+      options:
+        - All users would benefit
+        - Most users would benefit  
+        - Some users would benefit
+        - Niche use case, few users
+        - Enterprise/advanced users only
+    validations:
+      required: true
+
+  - type: dropdown
+    id: urgency
+    attributes:
+      label: Priority Level
+      description: How important is this feature to you?
+      options:
+        - Critical - Blocking adoption/usage
+        - High - Significantly improves workflow
+        - Medium - Nice to have enhancement
+        - Low - Minor improvement
+    validations:
+      required: true
+
+  - type: textarea
+    id: use-cases
+    attributes:
+      label: Use Cases & Examples
+      description: Provide specific examples of how this feature would be used
+      placeholder: |
+        Example 1: When a developer wants to...
+        Example 2: In enterprise environments where...
+        Example 3: During the installation process...
+    validations:
+      required: true
+
+  - type: textarea
+    id: acceptance-criteria
+    attributes:
+      label: Acceptance Criteria
+      description: What would indicate that this feature is complete and working correctly?
+      placeholder: |
+        - [ ] Feature works as described
+        - [ ] Documentation is updated
+        - [ ] Tests are added
+        - [ ] Security considerations addressed
+        - [ ] Performance impact is minimal
+
+  - type: textarea
+    id: implementation-suggestions
+    attributes:
+      label: Implementation Suggestions
+      description: |
+        If you have technical knowledge, suggest how this might be implemented.
+        This is optional but helpful for planning.
+      placeholder: |
+        This could be implemented by...
+        Required changes might include...
+        Integration points would be...
+
+  - type: dropdown
+    id: breaking-changes
+    attributes:
+      label: Breaking Changes
+      description: Would this feature require breaking changes to existing functionality?
+      options:
+        - No breaking changes needed
+        - Minor breaking changes acceptable
+        - Major breaking changes required
+        - Unsure about impact
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: enterprise-features
+    attributes:
+      label: Enterprise Considerations
+      description: Check any that apply to this feature
+      options:
+        - label: This feature is primarily for enterprise users
+        - label: This feature requires additional security considerations
+        - label: This feature needs compliance/audit support
+        - label: This feature impacts scalability requirements
+
+  - type: textarea
+    id: additional-context
+    attributes:
+      label: Additional Context
+      description: |
+        Add any other context, mockups, links to similar features in other tools, 
+        or anything else that would help understand the feature request.
+      placeholder: |
+        Links to similar features:
+        Mockups or diagrams:
+        Related issues:
+        External references:
+
+  - type: checkboxes
+    id: contribution
+    attributes:
+      label: Contribution Interest
+      description: Are you interested in contributing to this feature?
+      options:
+        - label: I'm interested in helping implement this feature
+        - label: I can help with testing and feedback
+        - label: I can contribute to documentation
+        - label: I have domain expertise to share
+
+  - type: markdown
+    attributes:
+      value: |
+        ---
+        **Thank you for your feature request!** 
+        
+        We'll review it and provide feedback. Popular features with clear use cases and implementation paths are prioritized.
