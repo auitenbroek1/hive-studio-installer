@@ -16,7 +16,7 @@
 
 set -eE
 trap 'installation_error_handler $? $LINENO' ERR
-trap 'installation_cleanup' INT
+trap 'installation_cleanup' INT TERM EXIT
 
 # Colors and emojis for beautiful output
 if [[ -t 1 ]] && command -v tput >/dev/null 2>&1; then
@@ -44,6 +44,7 @@ START_TIME=$(date +%s)
 INSTALL_LOG="$HOME/.hive-studio-install-v1.0.0.log"
 USER_HOME=${HOME}
 INSTALL_LOCK_FILE="$USER_HOME/.hive-studio-installing"
+LOCK_TIMEOUT_SECONDS=1800  # 30 minutes
 
 # ═══════════════════════════════════════════════════════════════════════════
 # PROFESSIONAL ERROR HANDLING SYSTEM
@@ -137,7 +138,11 @@ installation_error_handler() {
 
 professional_cleanup() {
     echo -e "\n${YELLOW}${WARN}${NC} ${BOLD}Cleaning up...${NC}"
-    rm -f "$INSTALL_LOCK_FILE" 2>/dev/null || true
+    # Always remove lock file in cleanup
+    if [[ -f "$INSTALL_LOCK_FILE" ]]; then
+        rm -f "$INSTALL_LOCK_FILE" 2>/dev/null || true
+        log_with_timestamp "CLEANUP" "Removed installation lock file"
+    fi
     # Clean up any temporary Node.js download files
     rm -rf /tmp/nodejs-install-* 2>/dev/null || true
     log_with_timestamp "CLEANUP" "Installation cleanup completed"
@@ -378,19 +383,155 @@ install_with_progress() {
 }
 
 # ═══════════════════════════════════════════════════════════════════════════
+# ADVANCED LOCK FILE MANAGEMENT
+# ═══════════════════════════════════════════════════════════════════════════
+
+check_and_handle_lock_file() {
+    if [[ ! -f "$INSTALL_LOCK_FILE" ]]; then
+        log_with_timestamp "LOCK" "No lock file found, proceeding with installation"
+        return 0
+    fi
+    
+    local lock_content
+    lock_content=$(cat "$INSTALL_LOCK_FILE" 2>/dev/null || echo "")
+    
+    # Parse lock file content (format: PID:timestamp or just PID for legacy)
+    local lock_pid=""
+    local lock_timestamp=""
+    
+    if [[ "$lock_content" =~ ^([0-9]+):([0-9]+)$ ]]; then
+        # New format with PID and timestamp
+        lock_pid="${BASH_REMATCH[1]}"
+        lock_timestamp="${BASH_REMATCH[2]}"
+    elif [[ "$lock_content" =~ ^[0-9]+$ ]]; then
+        # Legacy format with just PID
+        lock_pid="$lock_content"
+        # Use file modification time as fallback timestamp
+        if command -v stat >/dev/null 2>&1; then
+            if [[ "$OSTYPE" == "darwin"* ]]; then
+                lock_timestamp=$(stat -f "%m" "$INSTALL_LOCK_FILE" 2>/dev/null || echo "0")
+            else
+                lock_timestamp=$(stat -c "%Y" "$INSTALL_LOCK_FILE" 2>/dev/null || echo "0")
+            fi
+        else
+            lock_timestamp="0"
+        fi
+    else
+        echo -e "\\n${WARN} Found corrupted lock file: $INSTALL_LOCK_FILE"
+        echo -e "${MAGIC} Removing corrupted lock file and proceeding..."
+        rm -f "$INSTALL_LOCK_FILE"
+        log_with_timestamp "LOCK" "Removed corrupted lock file"
+        return 0
+    fi
+    
+    # Check if process is still running
+    local process_running=false
+    if [[ -n "$lock_pid" ]] && kill -0 "$lock_pid" 2>/dev/null; then
+        process_running=true
+    fi
+    
+    # Check lock age (if we have a timestamp)
+    local lock_age=0
+    local current_time=$(date +%s)
+    if [[ -n "$lock_timestamp" ]] && [[ "$lock_timestamp" -gt 0 ]]; then
+        lock_age=$((current_time - lock_timestamp))
+    fi
+    
+    # Determine what to do based on process status and age
+    if [[ "$process_running" == true ]]; then
+        if [[ $lock_age -gt $LOCK_TIMEOUT_SECONDS ]]; then
+            echo -e "\\n${WARN} Found long-running installation process (PID: $lock_pid, running for $((lock_age/60)) minutes)"
+            echo -e "${MAGIC} This might be stuck. What would you like to do?"
+            echo
+            echo -e "1. ${BOLD}Wait${NC} - Let the current installation finish"
+            echo -e "2. ${BOLD}Force${NC} - Stop the stuck process and start fresh"
+            echo -e "3. ${BOLD}Exit${NC} - Cancel and try again later"
+            echo
+            read -p "Choose 1, 2, or 3: " choice
+            
+            case "$choice" in
+                1)
+                    echo -e "\\n${MAGIC} Waiting for current installation to finish..."
+                    exit 1
+                    ;;
+                2)
+                    echo -e "\\n${MAGIC} Stopping stuck installation process..."
+                    kill -TERM "$lock_pid" 2>/dev/null || true
+                    sleep 2
+                    kill -KILL "$lock_pid" 2>/dev/null || true
+                    rm -f "$INSTALL_LOCK_FILE"
+                    echo -e "${GREEN}${CHECK}${NC} Cleaned up stuck installation. Proceeding..."
+                    log_with_timestamp "LOCK" "Force-removed stuck process $lock_pid and lock file"
+                    ;;
+                3)
+                    echo -e "\\n${MAGIC} Installation cancelled. Try again when ready."
+                    exit 1
+                    ;;
+                *)
+                    echo -e "\\n${WARN} Invalid choice. Exiting to be safe."
+                    exit 1
+                    ;;
+            esac
+        else
+            echo -e "\\n${WARN} Another installation is currently running (PID: $lock_pid)"
+            echo -e "${MAGIC} Started $((lock_age/60)) minutes ago"
+            echo
+            echo -e "${BLUE}${BRAIN}${NC} ${BOLD}Please wait for it to finish, or:${NC}"
+            echo -e "   • Check if it's still active in Activity Monitor/Task Manager"
+            echo -e "   • If stuck, you can force-quit and run: ${BOLD}rm $INSTALL_LOCK_FILE${NC}"
+            echo -e "   • Then restart this installer"
+            echo
+            exit 1
+        fi
+    else
+        # Process not running
+        if [[ $lock_age -gt $LOCK_TIMEOUT_SECONDS ]]; then
+            # Stale lock - auto-remove
+            echo -e "\\n${YELLOW}${MAGIC}${NC} Found stale lock file from previous installation"
+            echo -e "${MAGIC} Lock is $((lock_age/60)) minutes old and process has exited"
+            echo -e "${GREEN}${CHECK}${NC} Auto-removing stale lock and proceeding..."
+            rm -f "$INSTALL_LOCK_FILE"
+            log_with_timestamp "LOCK" "Auto-removed stale lock file (age: ${lock_age}s, PID: $lock_pid)"
+        else
+            # Recent lock but process died - could be crash
+            echo -e "\\n${WARN} Found lock file from recent installation that didn't complete properly"
+            echo -e "${MAGIC} Process $lock_pid exited but lock remained (started $((lock_age/60)) minutes ago)"
+            echo
+            echo -e "${BLUE}${BRAIN}${NC} ${BOLD}What would you like to do?${NC}"
+            echo -e "1. ${BOLD}Clean up${NC} and start fresh (recommended)"
+            echo -e "2. ${BOLD}Exit${NC} and investigate manually"
+            echo
+            read -p "Choose 1 or 2: " choice
+            
+            case "$choice" in
+                1)
+                    rm -f "$INSTALL_LOCK_FILE"
+                    echo -e "${GREEN}${CHECK}${NC} Cleaned up lock file. Starting fresh installation..."
+                    log_with_timestamp "LOCK" "Cleaned up orphaned lock file (PID: $lock_pid)"
+                    ;;
+                2)
+                    echo -e "\\n${MAGIC} To manually clean up, run: ${BOLD}rm $INSTALL_LOCK_FILE${NC}"
+                    exit 1
+                    ;;
+                *)
+                    echo -e "\\n${WARN} Invalid choice. Exiting to be safe."
+                    exit 1
+                    ;;
+            esac
+        fi
+    fi
+}
+
+# ═══════════════════════════════════════════════════════════════════════════
 # ROBUST INSTALLATION FUNCTIONS WITH AUTO-RECOVERY
 # ═══════════════════════════════════════════════════════════════════════════
 
 validate_system_requirements() {
-    # Check for installation lock
-    if [[ -f "$INSTALL_LOCK_FILE" ]]; then
-        echo -e "\n${WARN} Another installation is already running!"
-        echo -e "${MAGIC} ${BOLD}Wait for it to finish, or remove: $INSTALL_LOCK_FILE${NC}"
-        exit 1
-    fi
+    # Advanced lock file handling with stale lock detection
+    check_and_handle_lock_file
     
-    # Create installation lock
-    echo "$$" > "$INSTALL_LOCK_FILE"
+    # Create installation lock with PID and timestamp
+    echo "$$:$(date +%s)" > "$INSTALL_LOCK_FILE"
     
     # Basic system checks
     if ! command -v curl >/dev/null 2>&1 && ! command -v wget >/dev/null 2>&1; then
@@ -953,8 +1094,11 @@ show_completion_summary() {
     echo
     echo -e "${PARTY} ${BOLD}Welcome to the future! You're going to love having an AI assistant.${NC}"
     
-    # Clean up
-    rm -f "$INSTALL_LOCK_FILE" 2>/dev/null || true
+    # Clean up lock file on successful completion
+    if [[ -f "$INSTALL_LOCK_FILE" ]]; then
+        rm -f "$INSTALL_LOCK_FILE" 2>/dev/null || true
+        log_with_timestamp "SUCCESS" "Cleaned up installation lock file"
+    fi
     log_with_timestamp "SUCCESS" "Installation completed successfully"
 }
 
