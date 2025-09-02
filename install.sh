@@ -161,7 +161,7 @@ show_welcome_wizard() {
     
     echo -e "${BLUE}╔══════════════════════════════════════════════════════════════════════════════╗${NC}"
     echo -e "${BLUE}║${NC}                                                                              ${BLUE}║${NC}"
-    echo -e "${BLUE}║${NC}          ${BOLD}${PARTY} Welcome to Your Personal AI Assistant Setup! ${PARTY}${NC}          ${BLUE}║${NC}"
+    echo -e "${BLUE}║${NC}          ${BOLD}${PARTY} Welcome to your Hive Studio installation setup! ${PARTY}${NC}          ${BLUE}║${NC}"
     echo -e "${BLUE}║${NC}                                                                              ${BLUE}║${NC}"
     echo -e "${BLUE}║${NC}              ${BOLD}Getting you AI superpowers in just 5 minutes${NC}              ${BLUE}║${NC}"
     echo -e "${BLUE}║${NC}                                                                              ${BLUE}║${NC}"
@@ -170,16 +170,8 @@ show_welcome_wizard() {
     
     echo -e "${GREEN}${HEART}${NC} ${BOLD}Hi there! I'm so excited you're here!${NC}"
     echo
-    echo -e "Think of this like getting a really smart assistant that can:"
-    echo -e "   ${STAR} Write emails and documents for you"
-    echo -e "   ${STAR} Answer questions about anything"  
-    echo -e "   ${STAR} Help with business tasks and planning"
-    echo -e "   ${STAR} Learn what you need and get better over time"
-    echo
-    echo -e "${BLUE}${MAGIC}${NC} ${BOLD}This is completely safe and easy to undo later${NC}"
-    echo -e "${GREEN}${CHECK}${NC} Works on your computer - your data stays private"
-    echo -e "${GREEN}${CHECK}${NC} No monthly subscriptions or hidden costs"
-    echo -e "${GREEN}${CHECK}${NC} Designed for regular people, not programmers"
+    echo -e "This is a safe and easy installation that you can undo at any time."
+    echo -e "Just follow along the steps and you'll be up and running in no time."
     echo
     
     read -p "Ready to get started? Just press ENTER to continue (or type 'help' for more info): " user_response
@@ -222,103 +214,16 @@ show_detailed_help() {
 # ═══════════════════════════════════════════════════════════════════════════
 
 conduct_needs_assessment() {
-    echo -e "${TARGET} ${BOLD}Let's figure out the perfect setup for you!${NC}"
-    echo
-    echo -e "I'll ask 3 quick questions to customize your AI assistant:"
-    echo
-    
-    # Question 1: Role/Context
-    echo -e "${BLUE}${STAR}${NC} ${BOLD}Question 1 of 3: What describes you best?${NC}"
-    echo
-    echo -e "a) I run a small business or work for myself"
-    echo -e "b) I work for a company and want to be more productive" 
-    echo -e "c) I'm curious about AI and want to try it out"
-    echo -e "d) I'm pretty technical and want all the advanced features"
-    echo
-    read -p "Choose a, b, c, or d: " role_choice
-    
-    # Question 2: Primary Use
-    echo -e "\n${BLUE}${STAR}${NC} ${BOLD}Question 2 of 3: What would help you most?${NC}"
-    echo
-    echo -e "a) Writing emails, documents, and communication"
-    echo -e "b) Research and analyzing information"
-    echo -e "c) Planning projects and organizing tasks" 
-    echo -e "d) Learning and exploring what's possible"
-    echo
-    read -p "Choose a, b, c, or d: " use_choice
-    
-    # Question 3: Experience Level  
-    echo -e "\n${BLUE}${STAR}${NC} ${BOLD}Question 3 of 3: How comfortable are you with technology?${NC}"
-    echo
-    echo -e "a) I prefer simple, guided experiences (MOST PEOPLE CHOOSE THIS ${MAGIC})"
-    echo -e "b) I'm comfortable with technology and like some control"
-    echo -e "c) I'm very technical and want full customization"
-    echo
-    read -p "Choose a, b, or c: " tech_choice
-    
-    # Determine profile based on responses
-    determine_user_profile "$role_choice" "$use_choice" "$tech_choice"
+    # Skip the fake wizard - proceed directly with default profile
+    export SELECTED_PROFILE="novice"
+    echo -e "\n${ROCKET} ${BOLD}Setting up your Hive Studio installation...${NC}\n"
+    log_with_timestamp "PROFILE" "Using default profile: novice (Beginner-Friendly Setup)"
 }
 
 determine_user_profile() {
-    local role="$1" use="$2" tech="$3"
-    local profile="novice"  # Default to novice (safest choice)
-    local profile_display="Beginner-Friendly Setup"
-    
-    # Determine profile (simplified logic)
-    if [[ "$tech" == "c" ]]; then
-        profile="developer"
-        profile_display="Full-Power Technical Setup"
-    elif [[ "$role" == "a" && "$use" != "d" ]]; then
-        profile="business"  
-        profile_display="Business Owner Setup"
-    else
-        profile="novice"
-        profile_display="Beginner-Friendly Setup"
-    fi
-    
-    # Show personalized recommendation
-    echo -e "\n${GREEN}${TARGET}${NC} ${BOLD}Perfect! Here's what I recommend:${NC}"
-    echo
-    echo -e "${GREEN}${CHECK}${NC} ${BOLD}$profile_display${NC}"
-    echo
-    
-    case $profile in
-        "novice")
-            echo -e "This gives you:"
-            echo -e "   ${STAR} Simple, friendly commands that explain what they do"
-            echo -e "   ${STAR} Lots of help and examples built right in"
-            echo -e "   ${STAR} Safe environment - you can't accidentally break anything"
-            echo -e "   ${STAR} Grows with you as you learn more"
-            ;;
-        "business")
-            echo -e "This gives you:"
-            echo -e "   ${STAR} Business automation tools and templates"
-            echo -e "   ${STAR} Client management and communication helpers"
-            echo -e "   ${STAR} Market research and analysis capabilities"
-            echo -e "   ${STAR} Professional reporting and document generation"
-            ;;
-        "developer")
-            echo -e "This gives you:"
-            echo -e "   ${STAR} Full access to all advanced features"
-            echo -e "   ${STAR} Complete customization and control"
-            echo -e "   ${STAR} Development tools and integrations"
-            echo -e "   ${STAR} Command-line access for power users"
-            ;;
-    esac
-    
-    echo
-    read -p "Does this sound good? (Just press ENTER to continue, or type 'change' to pick different): " confirm
-    
-    if [[ "$confirm" == "change" ]]; then
-        echo -e "\n${MAGIC} No problem! Let me ask those questions again..."
-        conduct_needs_assessment
-        return
-    fi
-    
-    export SELECTED_PROFILE="$profile"
-    echo -e "\n${ROCKET} ${BOLD}Great choice! Setting up your $profile_display...${NC}\n"
-    log_with_timestamp "PROFILE" "User selected profile: $profile ($profile_display)"
+    # This function is no longer used - keeping for compatibility
+    export SELECTED_PROFILE="novice"
+    log_with_timestamp "PROFILE" "Using default profile: novice (Beginner-Friendly Setup)"
 }
 
 # ═══════════════════════════════════════════════════════════════════════════
@@ -965,13 +870,12 @@ create_desktop_shortcuts() {
     fi
     
     # Add helpful aliases if they don't exist
-    if ! grep -q "alias hive=" "$shell_config" 2>/dev/null; then
+    if ! grep -q "alias hivestudio=" "$shell_config" 2>/dev/null; then
         cat >> "$shell_config" << 'EOF'
 
-# Hive Studio AI Assistant shortcuts
-alias hive='claude'
-alias ai='claude'
-alias assistant='claude'
+# Hive Studio shortcuts
+alias hivestudio='claude'
+alias hivestart='claude'
 EOF
         log_with_timestamp "SHORTCUTS" "Desktop shortcuts created"
     fi
@@ -1061,13 +965,15 @@ show_success_celebration() {
         
         # Launch Claude if available
         if command -v claude >/dev/null 2>&1; then
-            echo -e "${GREEN}${MAGIC}${NC} ${BOLD}AI Assistant activated!${NC}"
-            echo -e "${BLUE}${BRAIN}${NC} Type your message below and press ENTER:"
+            echo -e "${GREEN}${MAGIC}${NC} ${BOLD}Claude Code is starting up...${NC}"
+            echo -e "${BLUE}${BRAIN}${NC} ${BOLD}Important:${NC} Claude Code needs to authorize first."
+            echo -e "   1. It will open a browser window for authorization"
+            echo -e "   2. After authorizing, you can start chatting!"
             echo
-            exec claude
+            claude
         else
             echo -e "${WARN} ${BOLD}Almost there!${NC} Please restart your terminal and type: ${BOLD}claude${NC}"
-            echo -e "Or try: ${BOLD}ai${NC} or ${BOLD}assistant${NC}"
+            echo -e "Or try: ${BOLD}hivestudio${NC} or ${BOLD}hivestart${NC}"
         fi
     else
         show_completion_summary
@@ -1079,7 +985,7 @@ show_completion_summary() {
     echo
     echo -e "${GREEN}${CHECK}${NC} ${BOLD}To start a conversation:${NC}"
     echo -e "   • Open any terminal and type: ${BOLD}claude${NC}"
-    echo -e "   • Or use the shortcuts: ${BOLD}ai${NC} or ${BOLD}assistant${NC}"
+    echo -e "   • Or use the shortcuts: ${BOLD}hivestudio${NC} or ${BOLD}hivestart${NC}"
     echo -e "   • On Mac: Double-click \"AI Assistant\" on your desktop"
     echo
     echo -e "${GREEN}${CHECK}${NC} ${BOLD}First things to try:${NC}"
