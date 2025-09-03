@@ -230,9 +230,8 @@ determine_user_profile() {
 # REAL-TIME INSTALLATION PROGRESS WITH ACCURATE STATUS TRACKING
 # ═══════════════════════════════════════════════════════════════════════════
 
-# Global status tracking
-declare -A STEP_STATUS
-declare -A STEP_START_TIME
+# Global status tracking - removed old associative arrays for bash 3.x compatibility
+# Now using indexed arrays with helper functions defined above
 
 download_with_progress() {
     local url="$1"
@@ -314,13 +313,12 @@ show_step_status() {
     
     case "$status" in
         "starting")
-            STEP_STATUS["$step_name"]="starting"
-            STEP_START_TIME["$step_name"]=$(date +%s)
+            set_step_status "$step_name" "starting" "$(date +%s)"
             echo -e "\n${BLUE}⏳${NC} ${BOLD}[$timestamp] STARTING: $message${NC}"
             log_with_timestamp "STEP_START" "$step_name: $message"
             ;;
         "progress")
-            STEP_STATUS["$step_name"]="progress"
+            set_step_status "$step_name" "progress"
             if [[ -n "$progress_percent" ]] && [[ "$progress_percent" =~ ^[0-9]+$ ]]; then
                 local bar_length=30
                 local filled=$((progress_percent * bar_length / 100))
@@ -334,14 +332,18 @@ show_step_status() {
             fi
             ;;
         "completed")
-            STEP_STATUS["$step_name"]="completed"
-            local duration=$(($(date +%s) - STEP_START_TIME["$step_name"]))
+            set_step_status "$step_name" "completed"
+            local start_time
+            start_time=$(get_step_start_time "$step_name")
+            local duration=$(($(date +%s) - start_time))
             echo -e "\r${GREEN}✅${NC} ${BOLD}[$timestamp] COMPLETED: $message${NC} ${GREEN}(${duration}s)${NC}"
             log_with_timestamp "STEP_COMPLETE" "$step_name: $message (${duration}s)"
             ;;
         "failed")
-            STEP_STATUS["$step_name"]="failed"
-            local duration=$(($(date +%s) - STEP_START_TIME["$step_name"]))
+            set_step_status "$step_name" "failed"
+            local start_time
+            start_time=$(get_step_start_time "$step_name")
+            local duration=$(($(date +%s) - start_time))
             echo -e "\r${RED}❌${NC} ${BOLD}[$timestamp] FAILED: $message${NC} ${RED}(${duration}s)${NC}"
             log_with_timestamp "STEP_FAILED" "$step_name: $message (${duration}s)"
             ;;
@@ -353,11 +355,13 @@ show_overall_progress() {
     local total_steps=0
     local failed_steps=0
     
-    for step in "${!STEP_STATUS[@]}"; do
+    # Count steps using indexed arrays
+    local i
+    for (( i=0; i<${#STEP_NAMES[@]}; i++ )); do
         total_steps=$((total_steps + 1))
-        if [[ "${STEP_STATUS[$step]}" == "completed" ]]; then
+        if [[ "${STEP_STATUS[i]}" == "completed" ]]; then
             completed_steps=$((completed_steps + 1))
-        elif [[ "${STEP_STATUS[$step]}" == "failed" ]]; then
+        elif [[ "${STEP_STATUS[i]}" == "failed" ]]; then
             failed_steps=$((failed_steps + 1))
         fi
     done
@@ -374,18 +378,19 @@ show_overall_progress() {
 install_with_progress() {
     echo -e "\n${ROCKET} ${BOLD}Starting Hive Studio installation with real-time progress tracking...${NC}\n"
     
-    # Initialize step tracking
-    declare -A installation_steps=(
-        ["system_check"]="Checking system requirements and dependencies"
-        ["node_install"]="Installing Node.js (AI foundation)"
-        ["claude_code_install"]="Installing Claude Code (smart features)"
-        ["claude_flow_install"]="Setting up Claude Flow (orchestration)"
-        ["validation"]="Validating installation and testing functionality"
-        ["shortcuts"]="Creating desktop shortcuts and aliases"
-        ["welcome"]="Preparing first conversation experience"
+    # Initialize step tracking - bash 3.x compatible approach
+    local step_names=("system_check" "node_install" "claude_code_install" "claude_flow_install" "validation" "shortcuts" "welcome")
+    local step_descriptions=(
+        "Checking system requirements and dependencies"
+        "Installing Node.js (AI foundation)"
+        "Installing Claude Code (smart features)"
+        "Setting up Claude Flow (orchestration)"
+        "Validating installation and testing functionality"
+        "Creating desktop shortcuts and aliases"
+        "Preparing first conversation experience"
     )
     
-    local total_steps=${#installation_steps[@]}
+    local total_steps=${#step_names[@]}
     echo -e "${BLUE}🎯${NC} ${BOLD}Installation Plan: $total_steps steps to complete${NC}\n"
     
     # Execute each step with real-time status updates
@@ -1370,7 +1375,11 @@ while [[ $# -gt 0 ]]; do
     esac
 done
 
-# Main execution
+# Main execution with bash compatibility check
+if ! check_bash_version; then
+    echo -e "\n${BLUE}${MAGIC}${NC} ${BOLD}Bash compatibility mode enabled for macOS default bash${NC}"
+fi
+
 log_with_timestamp "INIT" "Starting professional installer with safe_mode=$SAFE_MODE, auto_install_deps=$AUTO_INSTALL_DEPS"
 main
 exit_code=$?
