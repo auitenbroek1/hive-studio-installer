@@ -1544,13 +1544,14 @@ show_professional_completion_guide() {
     echo -e "${BOLD}1.${NC} ${BOLD}Close this terminal completely${NC} (Select Terminal from your top menu, then choose Quit Terminal)"
     echo -e "${BOLD}2.${NC} ${BOLD}Open a fresh new Terminal window by relaunching the Terminal app${NC}"
     echo -e "${BOLD}3.${NC} ${BOLD}Type${NC} ${YELLOW}claude${NC} ${BOLD}AND press Enter to launch Claude Code${NC}"
-    echo -e "${BOLD}4.${NC} ${BOLD}MOST IMPORTANT: You now have Claude Code ready to use${NC}"
+    echo -e "${BOLD}4.${NC} ${BOLD}MOST IMPORTANT: After Claude Code is running, type command${NC} ${YELLOW}hivestudio${NC} ${BOLD}to launch Hive Studio${NC}"
     echo
     echo -e "${HEART} ${BOLD}Very Important - Save this information!${NC}"
-    echo -e "To start using your AI assistant:"
+    echo -e "When you want to start Hive Studio, you must open the terminal, type the ${YELLOW}claude${NC} command first, and then once Claude Code is running, type the command ${YELLOW}hivestudio${NC}. This is the two-step command launch sequence you will follow every time you want to use Hive Studio."
     echo -e "${BOLD}1.${NC} Launch Terminal"
     echo -e "${BOLD}2.${NC} type: ${YELLOW}claude${NC}"
-    echo -e "${BOLD}3.${NC} Start chatting with your AI in plain English!"
+    echo -e "${BOLD}3.${NC} type: ${YELLOW}hivestudio${NC}"
+    echo -e "${BOLD}4.${NC} After that, you can talk to your computer using plain English."
     
     # Clean up and finish
     cleanup_installation
@@ -1563,7 +1564,7 @@ show_completion_summary() {
     echo -e "   • Close this terminal completely"
     echo -e "   • Open a fresh new terminal window"
     echo -e "   • Type: ${BOLD}claude${NC} and press Enter"
-    echo -e "   • Simply type: ${BOLD}claude${NC} and press Enter"
+    echo -e "   • Or use the shortcuts: ${BOLD}hivestudio${NC} or ${BOLD}hivestart${NC}"
     echo
     echo -e "${GREEN}${CHECK}${NC} ${BOLD}First things to try:${NC}"
     echo -e "   • Say \"hello\" to get started"
