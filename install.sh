@@ -495,7 +495,26 @@ determine_user_profile() {
 # ═══════════════════════════════════════════════════════════════════════════
 
 # Global status tracking - removed old associative arrays for bash 3.x compatibility
-# Now using indexed arrays with helper functions defined above
+# Now using indexed arrays with helper functions defined below
+
+# Step status tracking functions
+set_step_status() {
+    local step_name="$1"
+    local status="$2"
+    local timestamp="${3:-$(date +%s)}"
+    # Store status in temporary file for compatibility
+    echo "${step_name}|${status}|${timestamp}" >> "$HOME/.hive-install-status" 2>/dev/null || true
+}
+
+get_step_start_time() {
+    local step_name="$1"
+    if [[ -f "$HOME/.hive-install-status" ]]; then
+        local start_time=$(grep "^${step_name}|starting|" "$HOME/.hive-install-status" 2>/dev/null | tail -1 | cut -d'|' -f3)
+        echo "${start_time:-$(date +%s)}"
+    else
+        echo "$(date +%s)"
+    fi
+}
 
 download_with_progress() {
     local url="$1"
@@ -1577,6 +1596,10 @@ cleanup_installation() {
     if [[ -f "$INSTALL_LOCK_FILE" ]]; then
         rm -f "$INSTALL_LOCK_FILE" 2>/dev/null || true
         log_with_timestamp "SUCCESS" "Cleaned up installation lock file"
+    fi
+    # Clean up status tracking file
+    if [[ -f "$HOME/.hive-install-status" ]]; then
+        rm -f "$HOME/.hive-install-status" 2>/dev/null || true
     fi
     log_with_timestamp "SUCCESS" "Installation completed successfully - no automatic launch"
 }
