@@ -23,11 +23,12 @@ if [[ -t 1 ]] && command -v tput >/dev/null 2>&1; then
     RED=$(tput setaf 1 2>/dev/null || echo '')
     GREEN=$(tput setaf 2 2>/dev/null || echo '')
     YELLOW=$(tput setaf 3 2>/dev/null || echo '')
+    ORANGE=$(tput setaf 214 2>/dev/null || echo '')
     BLUE=$(tput setaf 4 2>/dev/null || echo '')
     BOLD=$(tput bold 2>/dev/null || echo '')
     NC=$(tput sgr0 2>/dev/null || echo '')
 else
-    RED='' GREEN='' YELLOW='' BLUE='' BOLD='' NC=''
+    RED='' GREEN='' YELLOW='' ORANGE='' BLUE='' BOLD='' NC=''
 fi
 
 # Emojis with ASCII fallbacks
@@ -1512,13 +1513,13 @@ show_success_celebration() {
     
     echo -e "${GREEN}${PARTY}${NC} ${BOLD}Congratulations. Your Hive Studio is almost ready. ${PARTY}${NC}"
     echo
-    echo -e "${GREEN}╔══════════════════════════════════════════════════════════════════════════════╗${NC}"
-    echo -e "${GREEN}║${NC}                                                                              ${GREEN}║${NC}"
-    echo -e "${GREEN}║${NC}          ${BOLD}🎊 You are on your way to AI superpowers! 🎊${NC}            ${GREEN}║${NC}"
-    echo -e "${GREEN}║${NC}                                                                              ${GREEN}║${NC}"
-    echo -e "${GREEN}║${NC}     ${BOLD}Installation completed in ${minutes}m ${seconds}s - that was easy!${NC}          ${GREEN}║${NC}"
-    echo -e "${GREEN}║${NC}                                                                              ${GREEN}║${NC}"
-    echo -e "${GREEN}╚══════════════════════════════════════════════════════════════════════════════╝${NC}"
+    echo -e "${ORANGE}╔══════════════════════════════════════════════════════════════════════════════╗${NC}"
+    echo -e "${ORANGE}║${NC}                                                                              ${ORANGE}║${NC}"
+    echo -e "${ORANGE}║${NC}           ${BOLD}🎊 You are on your way to AI superpowers! 🎊${NC}           ${ORANGE}║${NC}"
+    echo -e "${ORANGE}║${NC}                                                                              ${ORANGE}║${NC}"
+    echo -e "${ORANGE}║${NC}     ${BOLD}Installation completed in ${minutes}m ${seconds}s - that was easy!${NC}         ${ORANGE}║${NC}"
+    echo -e "${ORANGE}║${NC}                                                                              ${ORANGE}║${NC}"
+    echo -e "${ORANGE}╚══════════════════════════════════════════════════════════════════════════════╝${NC}"
     echo
     
     
@@ -1537,18 +1538,15 @@ show_professional_completion_guide() {
     echo
     echo -e "${GREEN}1.${NC} ${BOLD}Close this terminal completely${NC} (Select Terminal from your top menu, then choose Quit Terminal)"
     echo -e "${GREEN}2.${NC} ${BOLD}Open a fresh new Terminal window by relaunching the Terminal app${NC}"
-    echo -e "${GREEN}3.${NC} ${BOLD}Type:${NC} ${YELLOW}claude${NC} ${BOLD}press Enter to launch Claude Code${NC}"
-    echo -e "${GREEN}4.${NC} ${BOLD}MOST IMPORTANT: After Claude Code is running, type command${NC} ${YELLOW}\"hivestudio\"${NC} ${BOLD}to launch Hive Studio${NC}"
-    echo
-    echo -e "${BLUE}${BRAIN}${NC} ${BOLD}Why restart the terminal?${NC}"
-    echo -e "   This ensures your new shell environment loads perfectly!"
+    echo -e "${GREEN}3.${NC} ${BOLD}Type${NC} ${YELLOW} claude ${NC}${BOLD}AND press Enter to launch Claude Code${NC}"
+    echo -e "${GREEN}4.${NC} ${BOLD}MOST IMPORTANT: After Claude Code is running, type command${NC} ${YELLOW} hivestudio ${NC}${BOLD}to launch Hive Studio${NC}"
     echo
     echo -e "${HEART} ${BOLD}Very Important - Save this information!${NC}"
-    echo -e "When you want to start Hive Studio, you must open the terminal, type the 'claude' command first, and then once Claude Code is running, type the command 'hivestudio'. This is the two-step command launch sequence you will follow every time you want to use Hive Studio."
-    echo -e "1. Launch Terminal"
-    echo -e "2. type: claude"
-    echo -e "3. type: hivestudio"
-    echo -e "4. After that, you can talk to your computer using plain English."
+    echo -e "When you want to start Hive Studio, you must open the terminal, type the ${YELLOW}claude${NC} command first, and then once Claude Code is running, type the command ${YELLOW}hivestudio${NC}. This is the two-step command launch sequence you will follow every time you want to use Hive Studio."
+    echo -e "${BOLD}1.${NC} Launch Terminal"
+    echo -e "${BOLD}2.${NC} type: ${YELLOW}claude${NC}"
+    echo -e "${BOLD}3.${NC} type: ${YELLOW}hivestudio${NC}"
+    echo -e "${BOLD}4.${NC} After that, you can talk to your computer using plain English."
     
     # Clean up and finish
     cleanup_installation
