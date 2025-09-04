@@ -1510,34 +1510,17 @@ show_success_celebration() {
     
     clear 2>/dev/null || true
     
-    echo -e "${GREEN}${PARTY}${NC} ${BOLD}CONGRATULATIONS! Your AI Assistant is Ready! ${PARTY}${NC}"
+    echo -e "${GREEN}${PARTY}${NC} ${BOLD}Congratulations. Your Hive Studio is almost ready. ${PARTY}${NC}"
     echo
     echo -e "${GREEN}╔══════════════════════════════════════════════════════════════════════════════╗${NC}"
     echo -e "${GREEN}║${NC}                                                                              ${GREEN}║${NC}"
-    echo -e "${GREEN}║${NC}          ${BOLD}🎊 SUCCESS! You now have AI superpowers! 🎊${NC}                    ${GREEN}║${NC}"
+    echo -e "${GREEN}║${NC}          ${BOLD}🎊 You are on your way to AI superpowers! 🎊${NC}            ${GREEN}║${NC}"
     echo -e "${GREEN}║${NC}                                                                              ${GREEN}║${NC}"
     echo -e "${GREEN}║${NC}     ${BOLD}Installation completed in ${minutes}m ${seconds}s - that was easy!${NC}          ${GREEN}║${NC}"
     echo -e "${GREEN}║${NC}                                                                              ${GREEN}║${NC}"
     echo -e "${GREEN}╚══════════════════════════════════════════════════════════════════════════════╝${NC}"
     echo
     
-    echo -e "${ROCKET} ${BOLD}Let's take your AI assistant for a test drive RIGHT NOW!${NC}"
-    echo
-    echo -e "${MAGIC} Starting your first conversation..."
-    echo
-    
-    # Show what they can do
-    echo -e "${BLUE}${STAR}${NC} ${BOLD}Here are some things to try:${NC}"
-    echo
-    echo -e "1️⃣  ${BOLD}\"hello\"${NC} - Just say hi and get to know your AI!"
-    echo -e "2️⃣  ${BOLD}\"help me write an email about...\"${NC} - Get help with writing"  
-    echo -e "3️⃣  ${BOLD}\"what can you help me with?\"${NC} - Discover all the possibilities"
-    echo -e "4️⃣  ${BOLD}\"explain [topic] in simple terms\"${NC} - Learn about anything"
-    echo -e "5️⃣  ${BOLD}\"help me plan my day\"${NC} - Get organized and productive"
-    echo
-    
-    echo -e "${HEART} ${BOLD}Remember: Talk to your AI like a smart friend who wants to help!${NC}"
-    echo
     
     read -p "Ready for your first AI conversation? (Press ENTER to start chatting, or 'later' to finish setup): " start_choice
     
@@ -1549,25 +1532,23 @@ show_success_celebration() {
 }
 
 show_professional_completion_guide() {
-    echo -e "\n${GREEN}${PARTY}${NC} ${BOLD}Perfect! Your AI Assistant is Ready to Go!${NC}"
     echo
     echo -e "${BLUE}${MAGIC}${NC} ${BOLD}Final Step - Let's get you started:${NC}"
     echo
-    echo -e "${GREEN}1.${NC} ${BOLD}Close this terminal completely${NC} (⌘+Q on Mac, or click the X)"
-    echo -e "${GREEN}2.${NC} ${BOLD}Open a fresh new terminal window${NC}"
-    echo -e "${GREEN}3.${NC} ${BOLD}Type:${NC} ${YELLOW}claude${NC} ${BOLD}and press Enter${NC}"
-    echo -e "${GREEN}4.${NC} ${BOLD}Start with:${NC} ${YELLOW}\"hello\"${NC} ${BOLD}to meet your AI!${NC}"
+    echo -e "${GREEN}1.${NC} ${BOLD}Close this terminal completely${NC} (Select Terminal from your top menu, then choose Quit Terminal)"
+    echo -e "${GREEN}2.${NC} ${BOLD}Open a fresh new Terminal window by relaunching the Terminal app${NC}"
+    echo -e "${GREEN}3.${NC} ${BOLD}Type:${NC} ${YELLOW}claude${NC} ${BOLD}press Enter to launch Claude Code${NC}"
+    echo -e "${GREEN}4.${NC} ${BOLD}MOST IMPORTANT: After Claude Code is running, type command${NC} ${YELLOW}\"hivestudio\"${NC} ${BOLD}to launch Hive Studio${NC}"
     echo
     echo -e "${BLUE}${BRAIN}${NC} ${BOLD}Why restart the terminal?${NC}"
     echo -e "   This ensures your new shell environment loads perfectly!"
-    echo -e "   Your AI will have all its capabilities ready to go."
     echo
-    echo -e "${HEART} ${BOLD}What to try first:${NC}"
-    echo -e "   • ${BOLD}\"hello\"${NC} - Get acquainted with your AI"
-    echo -e "   • ${BOLD}\"what can you help me with?\"${NC} - Discover possibilities"
-    echo -e "   • ${BOLD}\"help me write an email\"${NC} - Jump into practical use"
-    echo
-    echo -e "${STAR} ${BOLD}You're about to experience AI that truly understands you!${NC}"
+    echo -e "${HEART} ${BOLD}Very Important - Save this information!${NC}"
+    echo -e "When you want to start Hive Studio, you must open the terminal, type the 'claude' command first, and then once Claude Code is running, type the command 'hivestudio'. This is the two-step command launch sequence you will follow every time you want to use Hive Studio."
+    echo -e "1. Launch Terminal"
+    echo -e "2. type: claude"
+    echo -e "3. type: hivestudio"
+    echo -e "4. After that, you can talk to your computer using plain English."
     
     # Clean up and finish
     cleanup_installation
