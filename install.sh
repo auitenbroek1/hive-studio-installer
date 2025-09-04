@@ -660,12 +660,13 @@ install_with_progress() {
     echo -e "\n${ROCKET} ${BOLD}Starting Hive Studio installation with real-time progress tracking...${NC}\n"
     
     # Initialize step tracking - bash 3.x compatible approach
-    local step_names=("system_check" "node_install" "claude_code_install" "claude_flow_install" "validation" "shortcuts" "welcome")
+    local step_names=("system_check" "node_install" "claude_code_install" "claude_flow_install" "hive_helper_install" "validation" "shortcuts" "welcome")
     local step_descriptions=(
         "Checking system requirements and dependencies"
         "Installing Node.js (AI foundation)"
         "Installing Claude Code (smart features)"
         "Setting up Claude Flow (orchestration)"
+        "Installing Hive Studio Helper System (project management)"
         "Validating installation and testing functionality"
         "Creating desktop shortcuts and aliases"
         "Preparing first conversation experience"
@@ -705,21 +706,28 @@ install_with_progress() {
         failed_steps=$((failed_steps + 1))
     fi
     
-    # Step 5: Installation Validation
+    # Step 5: Hive Studio Helper System Installation
+    if execute_step_with_status "hive_helper_install" "${installation_steps[hive_helper_install]}" install_hive_studio_helper_system; then
+        : # Success handled by execute_step_with_status
+    else
+        failed_steps=$((failed_steps + 1))
+    fi
+    
+    # Step 6: Installation Validation
     if execute_step_with_status "validation" "${installation_steps[validation]}" run_installation_validation; then
         : # Success handled by execute_step_with_status
     else
         failed_steps=$((failed_steps + 1))
     fi
     
-    # Step 6: Desktop Shortcuts
+    # Step 7: Desktop Shortcuts
     if execute_step_with_status "shortcuts" "${installation_steps[shortcuts]}" create_desktop_shortcuts; then
         : # Success handled by execute_step_with_status
     else
         failed_steps=$((failed_steps + 1))
     fi
     
-    # Step 7: Welcome Preparation
+    # Step 8: Welcome Preparation
     if execute_step_with_status "welcome" "${installation_steps[welcome]}" prepare_first_conversation; then
         : # Success handled by execute_step_with_status
     else
@@ -1448,7 +1456,19 @@ run_installation_validation() {
 }
 
 create_desktop_shortcuts() {
-    # Create simple launch aliases
+    # Legacy function - now handled by Hive Studio Helper System
+    log_with_timestamp "SHORTCUTS" "Desktop shortcuts handled by helper system"
+    
+    # Try to create macOS desktop shortcut
+    if [[ "$OSTYPE" == "darwin"* ]]; then
+        create_macos_shortcut
+    fi
+}
+
+install_hive_studio_helper_system() {
+    log_with_timestamp "HELPER" "Installing Hive Studio Helper System"
+    
+    # Detect user's shell configuration file
     local shell_config=""
     if [[ -f "$HOME/.zshrc" ]]; then
         shell_config="$HOME/.zshrc"
@@ -1459,13 +1479,308 @@ create_desktop_shortcuts() {
         touch "$shell_config"
     fi
     
-    # Aliases removed - hivestudio and hivestart will be assigned separately
-    log_with_timestamp "SHORTCUTS" "Desktop shortcuts created"
+    # Create backup
+    cp "$shell_config" "${shell_config}.hive-backup-$(date +%Y%m%d-%H%M%S)" 2>/dev/null || true
     
-    # Try to create macOS desktop shortcut
-    if [[ "$OSTYPE" == "darwin"* ]]; then
-        create_macos_shortcut
+    # Check if already installed (prevent duplicates)
+    if grep -q "HIVE STUDIO HELPER SYSTEM" "$shell_config" 2>/dev/null; then
+        log_with_timestamp "HELPER" "Helper system already installed, updating"
+        # Remove old installation
+        sed -i.tmp '/# HIVE STUDIO HELPER SYSTEM/,/# END HIVE STUDIO HELPER SYSTEM/d' "$shell_config" 2>/dev/null || true
     fi
+    
+    # Install helper functions
+    install_helper_functions "$shell_config"
+    
+    # Create workspace structure
+    create_workspace_structure
+    
+    log_with_timestamp "HELPER" "Hive Studio Helper System installed successfully"
+}
+
+install_helper_functions() {
+    local config_file="$1"
+    
+    cat >> "$config_file" << 'HIVE_HELPER_EOF'
+
+# ================================================
+# HIVE STUDIO HELPER SYSTEM - Auto-installed
+# ================================================
+
+# Primary command: hivestudio (brand reinforcement)
+hivestudio() {
+    start_hive_project "$@"
+}
+
+# Welcome message on terminal open
+hive_welcome() {
+    if [[ "$PWD" == "$HOME" ]] && [[ -z "$HIVE_WELCOME_SHOWN" ]]; then
+        export HIVE_WELCOME_SHOWN=1
+        echo "╭─────────────────────────────────────────╮"
+        echo "│  Welcome to Hive Studio! 🚀             │"
+        echo "├─────────────────────────────────────────┤"
+        echo "│  Quick Commands:                        │"
+        echo "│  • hivestudio       - Begin work       │"
+        echo "│  • list-projects    - See projects     │"
+        echo "╰─────────────────────────────────────────╯"
+        echo ""
+        echo "💡 Tip: Run 'hivestudio' to begin working!"
+        echo ""
+    fi
+}
+
+# Show welcome on terminal open
+hive_welcome
+
+# Core project launcher function
+start_hive_project() {
+    clear
+    echo "🚀 Welcome to Hive Studio!"
+    echo ""
+    echo "What would you like to do?"
+    echo ""
+    echo "  1) Work on an EXISTING project"
+    echo "  2) Create a NEW project" 
+    echo "  3) Just exploring/learning"
+    echo ""
+    read -p "Enter your choice (1-3): " choice
+    
+    case $choice in
+        1) select_existing_project ;;
+        2) create_new_hive_project ;;
+        3) launch_playground ;;
+        *) 
+            echo "Please enter 1, 2, or 3"
+            sleep 1
+            hivestudio
+            ;;
+    esac
+}
+
+# Select existing project
+select_existing_project() {
+    echo ""
+    echo "📁 Your Hive Studio projects:"
+    echo "─────────────────────────────"
+    
+    # Ensure workspace exists
+    if [[ ! -d "$HOME/hive-projects" ]]; then
+        mkdir -p "$HOME/hive-projects"
+    fi
+    
+    # List projects with numbers
+    local projects=($(find "$HOME/hive-projects" -maxdepth 1 -type d -not -path "$HOME/hive-projects" | sort))
+    
+    if [[ ${#projects[@]} -eq 0 ]]; then
+        echo "No projects found yet!"
+        echo ""
+        read -p "Would you like to create your first project? (y/n): " create
+        if [[ "$create" =~ ^[Yy] ]]; then
+            create_new_hive_project
+        fi
+        return
+    fi
+    
+    for i in "${!projects[@]}"; do
+        echo "  $((i+1))) $(basename "${projects[$i]}")"
+    done
+    
+    echo ""
+    read -p "Enter project number: " proj_num
+    
+    if [[ $proj_num -gt 0 ]] && [[ $proj_num -le ${#projects[@]} ]]; then
+        local selected="${projects[$((proj_num-1))]}"
+        launch_hive_project "$selected"
+    else
+        echo "Invalid selection"
+        sleep 1
+        select_existing_project
+    fi
+}
+
+# Create new project
+create_new_hive_project() {
+    echo ""
+    echo "📝 Let's create a new Hive Studio project!"
+    echo ""
+    read -p "Project name (no spaces): " proj_name
+    
+    # Sanitize name
+    proj_name=${proj_name// /-}
+    proj_name=${proj_name//[^a-zA-Z0-9-_]/}
+    
+    if [[ -z "$proj_name" ]]; then
+        echo "Please enter a valid project name"
+        sleep 1
+        create_new_hive_project
+        return
+    fi
+    
+    # Create project directory
+    local project_dir="$HOME/hive-projects/$proj_name"
+    
+    if [[ -d "$project_dir" ]]; then
+        echo "Project '$proj_name' already exists!"
+        read -p "Work on existing project? (y/n): " use_existing
+        if [[ "$use_existing" =~ ^[Yy] ]]; then
+            launch_hive_project "$project_dir"
+        else
+            create_new_hive_project
+        fi
+        return
+    fi
+    
+    mkdir -p "$project_dir"
+    cd "$project_dir"
+    
+    echo ""
+    echo "✅ Created project: $proj_name"
+    echo "📍 Location: ~/hive-projects/$proj_name"
+    
+    # Initialize project
+    initialize_hive_project "$proj_name"
+    launch_claude_with_flow
+}
+
+# Launch playground
+launch_playground() {
+    local playground_dir="$HOME/hive-projects/playground"
+    
+    if [[ ! -d "$playground_dir" ]]; then
+        mkdir -p "$playground_dir"
+        cd "$playground_dir"
+        echo "🎮 Created Hive Studio Playground!"
+        initialize_hive_project "playground"
+    else
+        cd "$playground_dir"
+        echo "🎮 Welcome back to the Playground!"
+    fi
+    
+    launch_claude_with_flow
+}
+
+# Launch specific project
+launch_hive_project() {
+    local project_dir="$1"
+    cd "$project_dir"
+    
+    echo ""
+    echo "✅ Switched to: $(basename "$project_dir")"
+    echo "📍 Location: $project_dir"
+    
+    # Check project setup
+    check_and_setup_project
+    
+    echo ""
+    echo "🚀 Starting Claude Code..."
+    sleep 1
+    
+    launch_claude_with_flow
+}
+
+# Initialize project with Claude Flow
+initialize_hive_project() {
+    local proj_name="$1"
+    
+    echo ""
+    echo "⚙️  Setting up Claude Flow..."
+    
+    # Initialize Claude Flow if available
+    if command -v npx >/dev/null 2>&1; then
+        npx claude-flow@alpha init >/dev/null 2>&1 || true
+    fi
+    
+    echo "✅ Project setup complete!"
+}
+
+# Launch Claude with Flow
+launch_claude_with_flow() {
+    if command -v claude >/dev/null 2>&1; then
+        claude
+    else
+        echo "❌ Claude Code not found!"
+        echo "Please run the Hive Studio installer first."
+    fi
+}
+
+# Check and setup project
+check_and_setup_project() {
+    if [[ ! -f "CLAUDE.md" ]] && [[ -w . ]]; then
+        echo "📝 Setting up Claude Flow for this project..."
+        if command -v npx >/dev/null 2>&1; then
+            npx claude-flow@alpha init >/dev/null 2>&1 || true
+        fi
+    fi
+}
+
+# Enhanced Claude wrapper with safety checks
+claude() {
+    # Safety check: prevent home directory launches
+    if [[ "$PWD" = "$HOME" ]]; then
+        echo "⚠️  Hold on! You're in your home directory."
+        echo ""
+        echo "Hive Studio works best in a project folder."
+        echo ""
+        echo "🎯 Quick fix: Type 'hivestudio' to get started properly!"
+        echo ""
+        read -p "Continue anyway? (not recommended) [y/N]: " force_continue
+        
+        if [[ ! "$force_continue" =~ ^[Yy] ]]; then
+            echo "👉 Run 'hivestudio' to begin!"
+            return
+        fi
+    fi
+    
+    # Safety check: workspace root
+    if [[ "$PWD" = "$HOME/hive-projects" ]]; then
+        echo "📁 You're in the workspace root!"
+        echo "Choose a specific project first:"
+        echo ""
+        ls -1 "$HOME/hive-projects" 2>/dev/null | head -10 || echo "No projects yet"
+        echo ""
+        echo "👉 Run 'hivestudio' to select a project!"
+        return
+    fi
+    
+    # Check for proper setup
+    check_and_setup_project
+    
+    # Launch Claude Code
+    command claude "$@"
+}
+
+# Helper commands
+alias list-projects='ls -1 "$HOME/hive-projects" 2>/dev/null || echo "No projects yet. Run hivestudio to create one!"'
+
+# END HIVE STUDIO HELPER SYSTEM
+HIVE_HELPER_EOF
+
+    log_with_timestamp "HELPER" "Helper functions added to $config_file"
+}
+
+create_workspace_structure() {
+    # Create Hive Studio workspace
+    if [[ ! -d "$HOME/hive-projects" ]]; then
+        mkdir -p "$HOME/hive-projects"
+        log_with_timestamp "HELPER" "Created Hive Studio workspace at ~/hive-projects"
+    fi
+    
+    # Create welcome file
+    cat > "$HOME/hive-projects/README.txt" << 'WORKSPACE_README'
+Welcome to your Hive Studio Workspace!
+
+This is where all your projects live. Each project gets its own folder
+with proper Claude Code and Claude Flow setup.
+
+Getting Started:
+1. Open Terminal
+2. Type: hivestudio
+3. Follow the menu to create or select projects
+
+Your projects are organized and easy to find here!
+WORKSPACE_README
+
+    log_with_timestamp "HELPER" "Workspace structure created"
 }
 
 create_macos_shortcut() {
@@ -1543,15 +1858,15 @@ show_professional_completion_guide() {
     echo
     echo -e "${BOLD}1.${NC} ${BOLD}Close this terminal completely${NC} (Select Terminal from your top menu, then choose Quit Terminal)"
     echo -e "${BOLD}2.${NC} ${BOLD}Open a fresh new Terminal window by relaunching the Terminal app${NC}"
-    echo -e "${BOLD}3.${NC} ${BOLD}Type${NC} ${YELLOW}claude${NC} ${BOLD}AND press Enter to launch Claude Code${NC}"
-    echo -e "${BOLD}4.${NC} ${BOLD}MOST IMPORTANT: After Claude Code is running, type command${NC} ${YELLOW}hivestudio${NC} ${BOLD}to launch Hive Studio${NC}"
+    echo -e "${BOLD}3.${NC} ${BOLD}Type${NC} ${YELLOW}hivestudio${NC} ${BOLD}AND press Enter to launch Hive Studio${NC}"
+    echo -e "${BOLD}4.${NC} ${BOLD}MOST IMPORTANT: Follow the menu to create or select your project${NC}"
     echo
     echo -e "${HEART} ${BOLD}Very Important - Save this information!${NC}"
-    echo -e "When you want to start Hive Studio, you must open the terminal, type the ${YELLOW}claude${NC} command first, and then once Claude Code is running, type the command ${YELLOW}hivestudio${NC}. This is the two-step command launch sequence you will follow every time you want to use Hive Studio."
+    echo -e "When you want to start Hive Studio, simply open the terminal and type ${YELLOW}hivestudio${NC}. This launches an intelligent project manager that will guide you through proper setup every time."
     echo -e "${BOLD}1.${NC} Launch Terminal"
-    echo -e "${BOLD}2.${NC} type: ${YELLOW}claude${NC}"
-    echo -e "${BOLD}3.${NC} type: ${YELLOW}hivestudio${NC}"
-    echo -e "${BOLD}4.${NC} After that, you can talk to your computer using plain English."
+    echo -e "${BOLD}2.${NC} type: ${YELLOW}hivestudio${NC}"
+    echo -e "${BOLD}3.${NC} Follow the guided menu"
+    echo -e "${BOLD}4.${NC} Start building amazing things!"
     
     # Clean up and finish
     cleanup_installation
@@ -1564,7 +1879,7 @@ show_completion_summary() {
     echo -e "   • Close this terminal completely"
     echo -e "   • Open a fresh new terminal window"
     echo -e "   • Type: ${BOLD}claude${NC} and press Enter"
-    echo -e "   • Or use the shortcuts: ${BOLD}hivestudio${NC} or ${BOLD}hivestart${NC}"
+    echo -e "   • Or type: ${BOLD}hivestudio${NC} for the guided experience"
     echo
     echo -e "${GREEN}${CHECK}${NC} ${BOLD}First things to try:${NC}"
     echo -e "   • Say \"hello\" to get started"
