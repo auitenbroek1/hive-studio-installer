@@ -431,15 +431,12 @@ show_welcome_wizard() {
     echo -e "${BLUE}║${NC}                                                                              ${BLUE}║${NC}"
     echo -e "${BLUE}║${NC}          ${BOLD}${PARTY} Welcome to your Hive Studio installation setup! ${PARTY}${NC}          ${BLUE}║${NC}"
     echo -e "${BLUE}║${NC}                                                                              ${BLUE}║${NC}"
-    echo -e "${BLUE}║${NC}              ${BOLD}Getting you AI superpowers in just 5 minutes${NC}              ${BLUE}║${NC}"
+    echo -e "${BLUE}║${NC}              ${BOLD}Giving you AI superpowers in just 5 minutes${NC}               ${BLUE}║${NC}"
     echo -e "${BLUE}║${NC}                                                                              ${BLUE}║${NC}"
     echo -e "${BLUE}╚══════════════════════════════════════════════════════════════════════════════╝${NC}"
     echo
     
     echo -e "${GREEN}${HEART}${NC} ${BOLD}Hi there! I'm so excited you're here!${NC}"
-    echo
-    echo -e "This is a safe and easy installation that you can undo at any time."
-    echo -e "Just follow along the steps and you'll be up and running in no time."
     echo
     
     read -p "Ready to get started? Just press ENTER to continue (or type 'help' for more info): " user_response
@@ -449,7 +446,6 @@ show_welcome_wizard() {
         read -p "Press ENTER when ready to continue: "
     fi
     
-    echo -e "\n${ROCKET} ${BOLD}Fantastic! Let's set up your AI assistant...${NC}\n"
 }
 
 show_detailed_help() {
@@ -1536,10 +1532,10 @@ show_professional_completion_guide() {
     echo
     echo -e "${BLUE}${MAGIC}${NC} ${BOLD}Final Step - Let's get you started:${NC}"
     echo
-    echo -e "${GREEN}1.${NC} ${BOLD}Close this terminal completely${NC} (Select Terminal from your top menu, then choose Quit Terminal)"
-    echo -e "${GREEN}2.${NC} ${BOLD}Open a fresh new Terminal window by relaunching the Terminal app${NC}"
-    echo -e "${GREEN}3.${NC} ${BOLD}Type${NC} ${YELLOW} claude ${NC}${BOLD}AND press Enter to launch Claude Code${NC}"
-    echo -e "${GREEN}4.${NC} ${BOLD}MOST IMPORTANT: After Claude Code is running, type command${NC} ${YELLOW} hivestudio ${NC}${BOLD}to launch Hive Studio${NC}"
+    echo -e "${BOLD}1.${NC} ${BOLD}Close this terminal completely${NC} (Select Terminal from your top menu, then choose Quit Terminal)"
+    echo -e "${BOLD}2.${NC} ${BOLD}Open a fresh new Terminal window by relaunching the Terminal app${NC}"
+    echo -e "${BOLD}3.${NC} ${BOLD}Type${NC} ${YELLOW}claude${NC} ${BOLD}AND press Enter to launch Claude Code${NC}"
+    echo -e "${BOLD}4.${NC} ${BOLD}MOST IMPORTANT: After Claude Code is running, type command${NC} ${YELLOW}hivestudio${NC} ${BOLD}to launch Hive Studio${NC}"
     echo
     echo -e "${HEART} ${BOLD}Very Important - Save this information!${NC}"
     echo -e "When you want to start Hive Studio, you must open the terminal, type the ${YELLOW}claude${NC} command first, and then once Claude Code is running, type the command ${YELLOW}hivestudio${NC}. This is the two-step command launch sequence you will follow every time you want to use Hive Studio."
