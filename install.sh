@@ -47,6 +47,253 @@ INSTALL_LOCK_FILE="$USER_HOME/.hive-studio-installing"
 LOCK_TIMEOUT_SECONDS=1800  # 30 minutes
 
 # ═══════════════════════════════════════════════════════════════════════════
+# SHELL COMPATIBILITY DETECTION AND CORRECTION SYSTEM
+# ═══════════════════════════════════════════════════════════════════════════
+
+# Detect the current shell being used to run this script
+detect_current_shell() {
+    local current_shell=""
+    
+    # Method 1: Check SHELL environment variable
+    if [[ -n "$SHELL" ]]; then
+        current_shell=$(basename "$SHELL")
+    # Method 2: Check parent process
+    elif command -v ps >/dev/null 2>&1; then
+        local parent_cmd=$(ps -p $PPID -o comm= 2>/dev/null | tr -d ' ')
+        if [[ -n "$parent_cmd" ]]; then
+            current_shell="$parent_cmd"
+        fi
+    fi
+    
+    # Method 3: Check for shell-specific variables
+    if [[ -z "$current_shell" ]]; then
+        if [[ -n "$ZSH_VERSION" ]]; then
+            current_shell="zsh"
+        elif [[ -n "$BASH_VERSION" ]]; then
+            current_shell="bash"
+        fi
+    fi
+    
+    echo "$current_shell"
+}
+
+# Detect the user's default shell on macOS
+detect_default_shell() {
+    local default_shell=""
+    
+    # Method 1: Check user's default shell in directory service
+    if command -v dscl >/dev/null 2>&1; then
+        default_shell=$(dscl . -read ~/ UserShell 2>/dev/null | awk '{print $2}' | xargs basename 2>/dev/null)
+    fi
+    
+    # Method 2: Check /etc/passwd
+    if [[ -z "$default_shell" ]] && [[ -f /etc/passwd ]]; then
+        default_shell=$(getent passwd "$USER" 2>/dev/null | cut -d: -f7 | xargs basename 2>/dev/null)
+    fi
+    
+    # Method 3: macOS Catalina+ defaults to zsh
+    if [[ -z "$default_shell" ]] && [[ "$(uname)" == "Darwin" ]]; then
+        local macos_version=$(sw_vers -productVersion 2>/dev/null | cut -d. -f1-2)
+        if [[ -n "$macos_version" ]] && command -v python3 >/dev/null 2>&1; then
+            local version_check=$(python3 -c "import sys; print('zsh' if float('$macos_version') >= 10.15 else 'bash')" 2>/dev/null)
+            if [[ "$version_check" == "zsh" ]]; then
+                default_shell="zsh"
+            fi
+        fi
+    fi
+    
+    # Fallback
+    if [[ -z "$default_shell" ]]; then
+        default_shell="bash"
+    fi
+    
+    echo "$default_shell"
+}
+
+# Detect shell mismatch and offer to fix
+detect_shell_mismatch() {
+    local current_shell=$(detect_current_shell)
+    local default_shell=$(detect_default_shell)
+    
+    log_with_timestamp "Shell Detection: Current=$current_shell, Default=$default_shell"
+    
+    # Only act on problematic mismatches
+    if [[ "$current_shell" == "bash" && "$default_shell" == "zsh" ]] || \
+       [[ "$current_shell" == "sh" && "$default_shell" == "zsh" ]]; then
+        
+        show_shell_mismatch_warning "$current_shell" "$default_shell"
+        
+        echo ""
+        echo -e "${BLUE}${MAGIC}${NC} ${BOLD}How would you like to proceed?${NC}"
+        echo -e "   ${GREEN}1${NC} Auto-fix shell environment (recommended)"
+        echo -e "   ${YELLOW}2${NC} Continue with current setup (advanced users)"
+        echo -e "   ${RED}3${NC} Exit and fix manually"
+        echo ""
+        
+        local choice=""
+        while [[ ! "$choice" =~ ^[123]$ ]]; do
+            read -p "$(echo -e "${BLUE}${TARGET}${NC} Choose option [1-3]: ")" choice
+            if [[ ! "$choice" =~ ^[123]$ ]]; then
+                echo -e "${WARN} Please enter 1, 2, or 3"
+            fi
+        done
+        
+        case $choice in
+            1)
+                log_with_timestamp "User chose auto-fix for shell mismatch"
+                if fix_shell_environment "$default_shell"; then
+                    echo -e "${GREEN}${CHECK}${NC} ${BOLD}Shell environment updated successfully!${NC}"
+                    echo -e "${BLUE}${MAGIC}${NC} Continuing installation with optimized environment..."
+                    sleep 2
+                else
+                    echo -e "${WARN} ${BOLD}Auto-fix encountered issues. Continuing with compatibility mode.${NC}"
+                fi
+                ;;
+            2)
+                log_with_timestamp "User chose to continue with shell mismatch"
+                echo -e "${YELLOW}${WARN}${NC} ${BOLD}Continuing with current setup...${NC}"
+                echo -e "${BLUE}${BRAIN}${NC} Note: You may need to restart your terminal after installation."
+                ;;
+            3)
+                log_with_timestamp "User chose to exit and fix shell manually"
+                echo -e "${BLUE}${MAGIC}${NC} ${BOLD}To fix manually, run:${NC}"
+                echo -e "   ${GREEN}chsh -s /bin/$default_shell${NC}"
+                echo -e "   Then restart your terminal and run this installer again."
+                exit 0
+                ;;
+        esac
+    fi
+}
+
+# Show user-friendly shell mismatch warning
+show_shell_mismatch_warning() {
+    local current_shell="$1"
+    local default_shell="$2"
+    
+    echo ""
+    echo -e "${YELLOW}${WARN}${NC} ${BOLD}Shell Environment Notice${NC}"
+    echo -e "${BLUE}────────────────────────────────────────${NC}"
+    echo -e "${BLUE}${BRAIN}${NC} We've detected a shell configuration that may cause issues:"
+    echo ""
+    echo -e "   Current shell: ${YELLOW}$current_shell${NC}"
+    echo -e "   Expected shell: ${GREEN}$default_shell${NC}"
+    echo ""
+    echo -e "${BLUE}${MAGIC}${NC} ${BOLD}Why this matters:${NC}"
+    echo -e "   • Your terminal commands may not work properly after installation"
+    echo -e "   • Environment variables might not persist between sessions"
+    echo -e "   • This can cause 'command not found' errors"
+    echo ""
+}
+
+# Fix shell environment by updating shell configuration
+fix_shell_environment() {
+    local target_shell="$1"
+    local success=true
+    
+    # Update shell profiles for cross-compatibility
+    configure_shell_environment "$target_shell" || success=false
+    
+    # Create immediate environment script
+    create_immediate_env_script || success=false
+    
+    if [[ "$success" == "true" ]]; then
+        return 0
+    else
+        return 1
+    fi
+}
+
+# Configure shell environment for cross-shell compatibility
+configure_shell_environment() {
+    local target_shell="$1"
+    local config_files=($(get_shell_config_files "$target_shell"))
+    
+    log_with_timestamp "Configuring shell environment for $target_shell"
+    
+    for config_file in "${config_files[@]}"; do
+        if [[ -f "$config_file" ]] || touch "$config_file" 2>/dev/null; then
+            configure_shell_file "$config_file"
+        fi
+    done
+    
+    return 0
+}
+
+# Get appropriate shell configuration files
+get_shell_config_files() {
+    local shell_type="$1"
+    local files=()
+    
+    case "$shell_type" in
+        zsh)
+            files=("$HOME/.zshrc" "$HOME/.zprofile")
+            ;;
+        bash)
+            files=("$HOME/.bashrc" "$HOME/.bash_profile" "$HOME/.profile")
+            ;;
+        fish)
+            files=("$HOME/.config/fish/config.fish")
+            ;;
+        *)
+            files=("$HOME/.profile")
+            ;;
+    esac
+    
+    echo "${files[@]}"
+}
+
+# Configure individual shell file
+configure_shell_file() {
+    local config_file="$1"
+    
+    # Add shell-specific configurations
+    local shell_config='
+# Hive Studio Environment Configuration
+if [ -f "$HOME/.hive-studio-env" ]; then
+    source "$HOME/.hive-studio-env"
+fi
+'
+    
+    if ! grep -q "Hive Studio Environment Configuration" "$config_file" 2>/dev/null; then
+        echo "$shell_config" >> "$config_file"
+        log_with_timestamp "Added Hive Studio configuration to $config_file"
+    fi
+}
+
+# Create immediate environment script that works across shells
+create_immediate_env_script() {
+    local env_script="$HOME/.hive-studio-env"
+    
+    cat > "$env_script" << 'EOF'
+#!/bin/bash
+# Hive Studio Environment Script
+# This file is sourced by various shell configurations
+
+# Node.js and npm paths
+if [ -d "$HOME/.npm-global/bin" ]; then
+    export PATH="$HOME/.npm-global/bin:$PATH"
+fi
+
+# Claude Code aliases
+alias hivestudio='claude'
+alias hivestart='claude' 
+alias ai='claude'
+
+# Hive Studio shortcuts
+alias hs='claude'
+alias hive='claude'
+EOF
+    
+    chmod +x "$env_script"
+    log_with_timestamp "Created immediate environment script at $env_script"
+    
+    # Source it immediately for current session
+    source "$env_script" 2>/dev/null || true
+    
+    return 0
+}
+
+# ═══════════════════════════════════════════════════════════════════════════
 # PROFESSIONAL ERROR HANDLING SYSTEM
 # ═══════════════════════════════════════════════════════════════════════════
 
@@ -624,6 +871,9 @@ validate_system_requirements() {
     
     # Create installation lock with PID and timestamp
     echo "$$:$(date +%s)" > "$INSTALL_LOCK_FILE"
+    
+    # Shell compatibility detection and correction
+    detect_shell_mismatch
     
     # Basic system checks
     if ! command -v curl >/dev/null 2>&1 && ! command -v wget >/dev/null 2>&1; then
