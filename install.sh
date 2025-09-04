@@ -1467,11 +1467,16 @@ create_macos_shortcut() {
     if [[ -d "$desktop_path" ]]; then
         cat > "$desktop_path/AI Assistant.command" << 'EOF'
 #!/bin/bash
+# AI Assistant Shortcut - Professional Launch
+echo "🚀 Starting your AI Assistant..."
+echo "This will open Claude in your default terminal."
+echo ""
 cd ~
-exec claude
+# Open a new terminal and run claude
+osascript -e 'tell application "Terminal" to do script "claude"'
 EOF
         chmod +x "$desktop_path/AI Assistant.command"
-        log_with_timestamp "MACOS" "Desktop shortcut created"
+        log_with_timestamp "MACOS" "Desktop shortcut created with safe terminal launch"
     fi
 }
 
