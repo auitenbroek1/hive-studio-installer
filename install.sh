@@ -131,12 +131,32 @@ detect_shell_mismatch() {
         echo ""
         
         local choice=""
-        while [[ ! "$choice" =~ ^[123]$ ]]; do
-            read -p "$(echo -e "${BLUE}${TARGET}${NC} Choose option [1-3]: ")" choice
-            if [[ ! "$choice" =~ ^[123]$ ]]; then
-                echo -e "${WARN} Please enter 1, 2, or 3"
-            fi
-        done
+        
+        # Check if running in interactive terminal (not curl | bash)
+        if [[ -t 0 ]] && [[ -t 1 ]]; then
+            # Interactive terminal - get user input
+            local attempt_count=0
+            while [[ ! "$choice" =~ ^[123]$ ]] && [[ $attempt_count -lt 10 ]]; do
+                printf "%s" "$(echo -e "${BLUE}${TARGET}${NC} Choose option [1-3]: ")"
+                read -r choice < /dev/tty 2>/dev/null || choice=""
+                attempt_count=$((attempt_count + 1))
+                
+                if [[ ! "$choice" =~ ^[123]$ ]]; then
+                    if [[ $attempt_count -lt 10 ]]; then
+                        echo -e "${WARN} Please enter 1, 2, or 3"
+                    else
+                        echo -e "${WARN} Too many attempts. Using default option 1 (recommended)"
+                        choice="1"
+                        break
+                    fi
+                fi
+            done
+        else
+            # Non-interactive environment (curl | bash) - use recommended default
+            choice="1"
+            echo -e "${BLUE}${BRAIN}${NC} ${BOLD}Non-interactive mode detected: Auto-selecting option 1 (recommended)${NC}"
+            log_with_timestamp "INPUT" "Non-interactive execution, using default shell fix option"
+        fi
         
         case $choice in
             1)
