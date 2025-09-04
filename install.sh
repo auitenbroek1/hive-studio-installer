@@ -1537,32 +1537,45 @@ show_success_celebration() {
     read -p "Ready for your first AI conversation? (Press ENTER to start chatting, or 'later' to finish setup): " start_choice
     
     if [[ "$start_choice" != "later" ]]; then
-        echo -e "\n${ROCKET} ${BOLD}Here we go! Your AI assistant is starting up...${NC}\n"
-        
-        # Launch Claude if available
-        if command -v claude >/dev/null 2>&1; then
-            echo -e "${GREEN}${MAGIC}${NC} ${BOLD}Claude Code is starting up...${NC}"
-            echo -e "${BLUE}${BRAIN}${NC} ${BOLD}Important:${NC} Claude Code needs to authorize first."
-            echo -e "   1. It will open a browser window for authorization"
-            echo -e "   2. After authorizing, you can start chatting!"
-            echo
-            claude
-        else
-            echo -e "${WARN} ${BOLD}Almost there!${NC} Please restart your terminal and type: ${BOLD}claude${NC}"
-            echo -e "Or try: ${BOLD}hivestudio${NC} or ${BOLD}hivestart${NC}"
-        fi
+        show_professional_completion_guide
     else
         show_completion_summary
     fi
+}
+
+show_professional_completion_guide() {
+    echo -e "\n${GREEN}${PARTY}${NC} ${BOLD}Perfect! Your AI Assistant is Ready to Go!${NC}"
+    echo
+    echo -e "${BLUE}${MAGIC}${NC} ${BOLD}Final Step - Let's get you started:${NC}"
+    echo
+    echo -e "${GREEN}1.${NC} ${BOLD}Close this terminal completely${NC} (⌘+Q on Mac, or click the X)"
+    echo -e "${GREEN}2.${NC} ${BOLD}Open a fresh new terminal window${NC}"
+    echo -e "${GREEN}3.${NC} ${BOLD}Type:${NC} ${YELLOW}claude${NC} ${BOLD}and press Enter${NC}"
+    echo -e "${GREEN}4.${NC} ${BOLD}Start with:${NC} ${YELLOW}\"hello\"${NC} ${BOLD}to meet your AI!${NC}"
+    echo
+    echo -e "${BLUE}${BRAIN}${NC} ${BOLD}Why restart the terminal?${NC}"
+    echo -e "   This ensures your new shell environment loads perfectly!"
+    echo -e "   Your AI will have all its capabilities ready to go."
+    echo
+    echo -e "${HEART} ${BOLD}What to try first:${NC}"
+    echo -e "   • ${BOLD}\"hello\"${NC} - Get acquainted with your AI"
+    echo -e "   • ${BOLD}\"what can you help me with?\"${NC} - Discover possibilities"
+    echo -e "   • ${BOLD}\"help me write an email\"${NC} - Jump into practical use"
+    echo
+    echo -e "${STAR} ${BOLD}You're about to experience AI that truly understands you!${NC}"
+    
+    # Clean up and finish
+    cleanup_installation
 }
 
 show_completion_summary() {
     echo -e "\n${STAR} ${BOLD}Setup Complete! Here's how to use your AI assistant:${NC}"
     echo
     echo -e "${GREEN}${CHECK}${NC} ${BOLD}To start a conversation:${NC}"
-    echo -e "   • Open any terminal and type: ${BOLD}claude${NC}"
+    echo -e "   • Close this terminal completely"
+    echo -e "   • Open a fresh new terminal window"
+    echo -e "   • Type: ${BOLD}claude${NC} and press Enter"
     echo -e "   • Or use the shortcuts: ${BOLD}hivestudio${NC} or ${BOLD}hivestart${NC}"
-    echo -e "   • On Mac: Double-click \"AI Assistant\" on your desktop"
     echo
     echo -e "${GREEN}${CHECK}${NC} ${BOLD}First things to try:${NC}"
     echo -e "   • Say \"hello\" to get started"
@@ -1572,16 +1585,20 @@ show_completion_summary() {
     echo -e "${GREEN}${CHECK}${NC} ${BOLD}Need help later?${NC}"
     echo -e "   • Ask your AI: \"how do I use this?\""
     echo -e "   • Check the project documentation"
-    echo -e "   • Visit the community forums"
     echo
     echo -e "${PARTY} ${BOLD}Welcome to the future! You're going to love having an AI assistant.${NC}"
     
+    # Clean up and finish
+    cleanup_installation
+}
+
+cleanup_installation() {
     # Clean up lock file on successful completion
     if [[ -f "$INSTALL_LOCK_FILE" ]]; then
         rm -f "$INSTALL_LOCK_FILE" 2>/dev/null || true
         log_with_timestamp "SUCCESS" "Cleaned up installation lock file"
     fi
-    log_with_timestamp "SUCCESS" "Installation completed successfully"
+    log_with_timestamp "SUCCESS" "Installation completed successfully - no automatic launch"
 }
 
 # ═══════════════════════════════════════════════════════════════════════════
