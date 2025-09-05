@@ -256,6 +256,35 @@ For enterprise deployments, custom configurations, and professional support:
 - **Support**: 24/7 enterprise support available
 - **Training**: Professional development team training
 
+## 🧹 Cleanup Instructions (For Testing/Reinstallation)
+
+If you've run multiple test installations and need to clean up conflicting configurations:
+
+### Quick Shell Configuration Reset
+```bash
+# Backup and clean shell configurations (run all at once)
+cp ~/.zshrc ~/.zshrc.backup-$(date +%Y%m%d) && \
+sed -i.tmp '/# HIVE STUDIO/,/# END HIVE STUDIO/d' ~/.zshrc 2>/dev/null || true && \
+sed -i.tmp '/hivestudio/d' ~/.zshrc && \
+sed -i.tmp '/hivestart/d' ~/.zshrc && \
+sed -i.tmp '/alias.*claude/d' ~/.zshrc && \
+sed -i.tmp '/alias.*hivestudio/d' ~/.zshrc && \
+sed -i.tmp '/alias.*hivestart/d' ~/.zshrc && \
+if [[ -f ~/.bashrc ]]; then sed -i.tmp '/# HIVE STUDIO/,/# END HIVE STUDIO/d' ~/.bashrc 2>/dev/null || true; sed -i.tmp '/hivestudio\|hivestart\|alias.*claude/d' ~/.bashrc; fi && \
+source ~/.zshrc && \
+echo "✅ Cleanup completed - close terminal and open fresh one before reinstalling"
+```
+
+**Usage**: Copy the entire block above and paste it as one command. It will:
+1. Backup your current `.zshrc` 
+2. Remove all Hive Studio configurations
+3. Remove conflicting aliases
+4. Clean both zsh and bash configs
+5. Reload your shell
+6. Confirm completion
+
+After running this cleanup, **close your terminal completely** and open a fresh terminal window before running the installer again.
+
 ---
 
 **Made with ❤️ by the Hive Studio Team**
