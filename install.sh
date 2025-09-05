@@ -1559,7 +1559,8 @@ start_hive_project() {
     echo "  2) Create a NEW project" 
     echo "  3) Just exploring/learning"
     echo ""
-    read -p "Enter your choice (1-3): " choice
+    echo -n "Enter your choice (1-3): "
+    read choice
     
     case $choice in
         1) select_existing_project ;;
@@ -1590,7 +1591,8 @@ select_existing_project() {
     if [[ ${#projects[@]} -eq 0 ]]; then
         echo "No projects found yet!"
         echo ""
-        read -p "Would you like to create your first project? (y/n): " create
+        echo -n "Would you like to create your first project? (y/n): "
+        read create
         if [[ "$create" =~ ^[Yy] ]]; then
             create_new_hive_project
         fi
@@ -1602,7 +1604,8 @@ select_existing_project() {
     done
     
     echo ""
-    read -p "Enter project number: " proj_num
+    echo -n "Enter project number: "
+    read proj_num
     
     if [[ $proj_num -gt 0 ]] && [[ $proj_num -le ${#projects[@]} ]]; then
         local selected="${projects[$((proj_num-1))]}"
@@ -1619,7 +1622,8 @@ create_new_hive_project() {
     echo ""
     echo "📝 Let's create a new Hive Studio project!"
     echo ""
-    read -p "Project name (no spaces): " proj_name
+    echo -n "Project name (no spaces): "
+    read proj_name
     
     # Sanitize name
     proj_name=${proj_name// /-}
@@ -1637,7 +1641,8 @@ create_new_hive_project() {
     
     if [[ -d "$project_dir" ]]; then
         echo "Project '$proj_name' already exists!"
-        read -p "Work on existing project? (y/n): " use_existing
+        echo -n "Work on existing project? (y/n): "
+        read use_existing
         if [[ "$use_existing" =~ ^[Yy] ]]; then
             launch_hive_project "$project_dir"
         else
@@ -1739,7 +1744,8 @@ claude() {
         echo ""
         echo "🎯 Quick fix: Type 'hivestudio' to get started properly!"
         echo ""
-        read -p "Continue anyway? (not recommended) [y/N]: " force_continue
+        echo -n "Continue anyway? (not recommended) [y/N]: "
+        read force_continue
         
         if [[ ! "$force_continue" =~ ^[Yy] ]]; then
             echo "👉 Run 'hivestudio' to begin!"
