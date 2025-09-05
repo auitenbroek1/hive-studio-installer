@@ -11,7 +11,12 @@ Hive Studio is a comprehensive, enterprise-grade AI development environment that
 
 ## ✨ Quick Start
 
-### One-Line Installation (macOS)
+### One-Line Installation (macOS) - Latest Features
+```bash
+curl -fsSL https://raw.githubusercontent.com/auitenbroek1/hive-studio-installer/feature/hive-helper-system/install.sh | bash
+```
+
+### Stable Installation (main branch)
 ```bash
 curl -sSL https://raw.githubusercontent.com/auitenbroek1/hive-studio-installer/main/install.sh | bash
 ```
@@ -86,7 +91,12 @@ Hive Studio Environment
 
 ## 🔧 Installation Options
 
-### Standard Installation
+### Latest Features Installation (Recommended)
+```bash
+curl -fsSL https://raw.githubusercontent.com/auitenbroek1/hive-studio-installer/feature/hive-helper-system/install.sh | bash
+```
+
+### Stable Installation
 ```bash
 curl -sSL https://raw.githubusercontent.com/auitenbroek1/hive-studio-installer/main/install.sh | bash
 ```
