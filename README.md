@@ -11,14 +11,9 @@ Hive Studio is a comprehensive, enterprise-grade AI development environment that
 
 ## ✨ Quick Start
 
-### One-Line Installation (macOS) - Latest Features
+### One-Line Installation (macOS)
 ```bash
-curl -fsSL https://raw.githubusercontent.com/auitenbroek1/hive-studio-installer/feature/hive-helper-system/install.sh | bash
-```
-
-### Stable Installation (main branch)
-```bash
-curl -sSL https://raw.githubusercontent.com/auitenbroek1/hive-studio-installer/main/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/auitenbroek1/hive-studio-installer/main/install.sh | bash
 ```
 
 ### Manual Installation
@@ -40,6 +35,7 @@ chmod +x install.sh
 - **MCP (Model Context Protocol)** - Standardized AI model integration
 - **RuvNet Tools** - Professional AI development utilities
 - **Claude Flow** - AI workflow orchestration and coordination system
+- **Hive Studio Helper System** - Intelligent project management and guided workflows
 
 ### Development Environment
 - **Node.js & npm** - JavaScript runtime and package management
@@ -91,14 +87,9 @@ Hive Studio Environment
 
 ## 🔧 Installation Options
 
-### Latest Features Installation (Recommended)
+### Standard Installation
 ```bash
-curl -fsSL https://raw.githubusercontent.com/auitenbroek1/hive-studio-installer/feature/hive-helper-system/install.sh | bash
-```
-
-### Stable Installation
-```bash
-curl -sSL https://raw.githubusercontent.com/auitenbroek1/hive-studio-installer/main/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/auitenbroek1/hive-studio-installer/main/install.sh | bash
 ```
 
 ### Custom Installation
@@ -125,26 +116,25 @@ curl -O https://raw.githubusercontent.com/auitenbroek1/hive-studio-installer/mai
 
 ### Verification
 ```bash
-# Verify Claude Code installation
+# Verify installation
 claude --version
 
 # Check MCP servers
 claude mcp list
 
-# Test AI workflow
-claude flow test
+# Test helper system
+hivestudio
 ```
 
-### Initial Configuration
+### First Steps
 ```bash
-# Configure your development environment
-claude setup
+# Launch Hive Studio (recommended way to start)
+hivestudio
 
-# Set up AI models
-claude config set-models
-
-# Initialize your first project
-claude create-project my-ai-app
+# Follow the guided menu to:
+# 1. Create your first project
+# 2. Set up your development environment  
+# 3. Start building with AI assistance
 ```
 
 ## 📚 Documentation
@@ -256,13 +246,40 @@ For enterprise deployments, custom configurations, and professional support:
 - **Support**: 24/7 enterprise support available
 - **Training**: Professional development team training
 
-## 🧹 Cleanup Instructions (For Testing/Reinstallation)
+## 🚀 Getting Started
 
-If you've run multiple test installations and need to clean up conflicting configurations:
+After installation, Hive Studio includes an intelligent project management system:
 
-### Quick Shell Configuration Reset
+### Launch Command
 ```bash
-# Backup and clean shell configurations (run all at once)
+hivestudio
+```
+
+This launches a guided menu with three options:
+1. **Work on an EXISTING project** - Select from your current projects
+2. **Create a NEW project** - Set up a fresh project with proper structure  
+3. **Just exploring/learning** - Launch playground environment
+
+### Project Organization
+Hive Studio automatically creates and manages your projects in:
+```
+~/hive-projects/
+├── your-project-1/
+├── your-project-2/
+└── playground/
+```
+
+### Best Practices
+- Always use `hivestudio` to start working (ensures proper project setup)
+- Let the system guide you to create or select projects
+- Each project gets its own isolated development environment
+
+## 🧹 Reinstallation (If Needed)
+
+If you need to reinstall or clean up configurations:
+
+```bash
+# Quick cleanup (run all at once)
 cp ~/.zshrc ~/.zshrc.backup-$(date +%Y%m%d) && \
 sed -i.tmp '/# HIVE STUDIO/,/# END HIVE STUDIO/d' ~/.zshrc 2>/dev/null || true && \
 sed -i.tmp '/hivestudio/d' ~/.zshrc && \
@@ -275,15 +292,7 @@ source ~/.zshrc && \
 echo "✅ Cleanup completed - close terminal and open fresh one before reinstalling"
 ```
 
-**Usage**: Copy the entire block above and paste it as one command. It will:
-1. Backup your current `.zshrc` 
-2. Remove all Hive Studio configurations
-3. Remove conflicting aliases
-4. Clean both zsh and bash configs
-5. Reload your shell
-6. Confirm completion
-
-After running this cleanup, **close your terminal completely** and open a fresh terminal window before running the installer again.
+Then close your terminal completely and run the installer again.
 
 ---
 
