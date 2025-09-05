@@ -672,6 +672,17 @@ install_with_progress() {
         "Preparing first conversation experience"
     )
     
+    # Create associative array for step descriptions (bash 3.x compatible)
+    declare -A installation_steps
+    installation_steps["system_check"]="Checking system requirements and dependencies"
+    installation_steps["node_install"]="Installing Node.js (AI foundation)"
+    installation_steps["claude_code_install"]="Installing Claude Code (smart features)"
+    installation_steps["claude_flow_install"]="Setting up Claude Flow (orchestration)"
+    installation_steps["hive_helper_install"]="Installing Hive Studio Helper System (project management)"
+    installation_steps["validation"]="Validating installation and testing functionality"
+    installation_steps["shortcuts"]="Creating desktop shortcuts and aliases"
+    installation_steps["welcome"]="Preparing first conversation experience"
+    
     local total_steps=${#step_names[@]}
     echo -e "${BLUE}🎯${NC} ${BOLD}Installation Plan: $total_steps steps to complete${NC}\n"
     
