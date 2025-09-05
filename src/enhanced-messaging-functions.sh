@@ -18,6 +18,23 @@
 # Global timeout for Claude Flow commands (prevent hanging)
 readonly CLAUDE_FLOW_TIMEOUT=10
 
+# Cross-platform timeout function
+safe_timeout() {
+    local timeout_duration="$1"
+    shift
+    
+    if command -v timeout >/dev/null 2>&1; then
+        # Linux/GNU timeout
+        timeout "${timeout_duration}s" "$@"
+    elif command -v gtimeout >/dev/null 2>&1; then
+        # macOS with coreutils installed
+        gtimeout "${timeout_duration}s" "$@"
+    else
+        # Fallback: run command without timeout protection
+        "$@"
+    fi
+}
+
 # ═══════════════════════════════════════════════════════════════════════════
 # CAPABILITY DETECTION SYSTEM
 # ═══════════════════════════════════════════════════════════════════════════
@@ -28,7 +45,7 @@ detect_claude_flow_capabilities() {
     local version_info=""
     
     # Safe version detection with timeout
-    if timeout "${CLAUDE_FLOW_TIMEOUT}s" npx claude-flow@alpha --version > "$temp_status" 2>/dev/null; then
+    if safe_timeout "${CLAUDE_FLOW_TIMEOUT}" npx claude-flow@alpha --version > "$temp_status" 2>/dev/null; then
         version_info=$(head -1 "$temp_status" 2>/dev/null)
         if [[ -n "$version_info" ]]; then
             capabilities+=("🌊 Claude Flow $(echo "$version_info" | grep -o 'v[0-9.a-z-]*' | head -1)")
@@ -36,7 +53,7 @@ detect_claude_flow_capabilities() {
     fi
     
     # Check for help command to verify installation
-    if timeout 5s npx claude-flow@alpha help > "$temp_status" 2>/dev/null; then
+    if safe_timeout 5 npx claude-flow@alpha help > "$temp_status" 2>/dev/null; then
         if grep -q -i "commands\|agent\|swarm" "$temp_status"; then
             capabilities+=("🤖 54+ Specialized AI Agents Available")
             capabilities+=("🔄 Multi-Agent Orchestration Engine")
@@ -190,7 +207,7 @@ initialize_claude_flow_safely() {
     local init_output="/tmp/claude-flow-init-$$"
     
     # Initialize with timeout protection
-    if timeout "${CLAUDE_FLOW_TIMEOUT}s" npx claude-flow@alpha init > "$init_output" 2>&1; then
+    if safe_timeout "${CLAUDE_FLOW_TIMEOUT}" npx claude-flow@alpha init > "$init_output" 2>&1; then
         # Check if initialization was successful
         if [[ -f "CLAUDE.md" ]] || grep -q "initialized\|success\|complete" "$init_output" 2>/dev/null; then
             rm -f "$init_output"
@@ -234,14 +251,14 @@ show_enhanced_claude_flow_validation() {
     echo -e "\n${BLUE}🔍${NC} ${BOLD}Validating Claude Flow Installation...${NC}"
     
     # Test basic functionality
-    if timeout 5s npx claude-flow@alpha --version >/dev/null 2>&1; then
-        version_info=$(timeout 3s npx claude-flow@alpha --version 2>/dev/null | head -1)
+    if safe_timeout 5 npx claude-flow@alpha --version >/dev/null 2>&1; then
+        version_info=$(safe_timeout 3 npx claude-flow@alpha --version 2>/dev/null | head -1)
         validation_result="basic"
         
         # Test advanced features
-        if timeout 5s npx claude-flow@alpha help >/dev/null 2>&1; then
+        if safe_timeout 5 npx claude-flow@alpha help >/dev/null 2>&1; then
             validation_result="full"
-            feature_count=$(timeout 3s npx claude-flow@alpha help 2>/dev/null | grep -c "  [a-z]" || echo "0")
+            feature_count=$(safe_timeout 3 npx claude-flow@alpha help 2>/dev/null | grep -c "  [a-z]" || echo "0")
         fi
     fi
     
