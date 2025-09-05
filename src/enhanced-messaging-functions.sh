@@ -109,11 +109,13 @@ show_installation_preview() {
 
 show_claude_flow_capabilities_showcase() {
     local capabilities
-    mapfile -t capabilities < <(detect_claude_flow_capabilities)
+    # Bash 3.x compatible way to read capabilities into array
+    local IFS=$'\n'
+    capabilities=($(detect_claude_flow_capabilities))
     
     # Use detected capabilities or fall back to guaranteed features
     if [[ ${#capabilities[@]} -eq 0 ]]; then
-        mapfile -t capabilities < <(get_guaranteed_claude_flow_features)
+        capabilities=($(get_guaranteed_claude_flow_features))
     fi
     
     echo

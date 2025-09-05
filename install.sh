@@ -18,6 +18,15 @@ set -eE
 trap 'installation_error_handler $? $LINENO' ERR
 trap 'installation_cleanup' INT TERM EXIT
 
+# Source enhanced Claude Flow messaging functions
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+if [[ -f "$SCRIPT_DIR/src/enhanced-messaging-functions.sh" ]]; then
+    source "$SCRIPT_DIR/src/enhanced-messaging-functions.sh"
+    ENHANCED_MESSAGING_AVAILABLE=true
+else
+    ENHANCED_MESSAGING_AVAILABLE=false
+fi
+
 # Colors and emojis for beautiful output
 if [[ -t 1 ]] && command -v tput >/dev/null 2>&1; then
     RED=$(tput setaf 1 2>/dev/null || echo '')
@@ -730,10 +739,18 @@ install_with_progress() {
     fi
     
     # Step 6: Installation Validation
-    if execute_step_with_status "validation" "$(get_step_description "validation")" run_installation_validation; then
-        : # Success handled by execute_step_with_status
+    if [[ "$ENHANCED_MESSAGING_AVAILABLE" == "true" ]]; then
+        if execute_step_with_status "validation" "$(get_step_description "validation")" enhanced_run_claude_flow_validation; then
+            : # Success handled by execute_step_with_status
+        else
+            failed_steps=$((failed_steps + 1))
+        fi
     else
-        failed_steps=$((failed_steps + 1))
+        if execute_step_with_status "validation" "$(get_step_description "validation")" run_installation_validation; then
+            : # Success handled by execute_step_with_status
+        else
+            failed_steps=$((failed_steps + 1))
+        fi
     fi
     
     # Step 7: Desktop Shortcuts
@@ -1328,6 +1345,19 @@ install_claude_code_with_retry() {
 }
 
 install_claude_flow_with_config() {
+    if [[ "$ENHANCED_MESSAGING_AVAILABLE" == "true" ]]; then
+        # Use enhanced messaging with capability showcase
+        enhanced_install_claude_flow_with_config
+        return $?
+    else
+        # Fallback to original function
+        install_claude_flow_with_config_original
+        return $?
+    fi
+}
+
+# Original function preserved for fallback
+install_claude_flow_with_config_original() {
     show_step_status "flow_install" "starting" "Installing Claude Flow orchestration system (alpha version)"
     
     # Install Claude Flow with feedback
@@ -1703,15 +1733,37 @@ launch_hive_project() {
 initialize_hive_project() {
     local proj_name="$1"
     
+    if [[ "$ENHANCED_MESSAGING_AVAILABLE" == "true" ]]; then
+        # Use enhanced messaging with Claude Flow capability showcase
+        enhanced_initialize_hive_project "$proj_name"
+        return $?
+    else
+        # Fallback to original function
+        initialize_hive_project_original "$proj_name"
+        return $?
+    fi
+}
+
+# Original function preserved for fallback
+initialize_hive_project_original() {
+    local proj_name="$1"
+    
     echo ""
-    echo "⚙️  Setting up Claude Flow..."
+    echo -e "${BLUE}⚙️${NC} ${BOLD}Setting up Claude Flow for '$proj_name'...${NC}"
     
     # Initialize Claude Flow if available
     if command -v npx >/dev/null 2>&1; then
-        npx claude-flow@alpha init >/dev/null 2>&1 || true
+        echo -e "${MAGIC} Configuring project-specific AI orchestration..."
+        if timeout 10s npx claude-flow@alpha init >/dev/null 2>&1; then
+            echo -e "${GREEN}✅${NC} ${BOLD}Claude Flow configured successfully${NC}"
+        else
+            echo -e "${YELLOW}⚠️${NC} ${BOLD}Using standard configuration${NC}"
+        fi
+    else
+        echo -e "${YELLOW}⚠️${NC} ${BOLD}Node.js not available - using basic setup${NC}"
     fi
     
-    echo "✅ Project setup complete!"
+    echo -e "${GREEN}✅${NC} ${BOLD}Project setup complete!${NC}"
 }
 
 # Launch Claude with Flow
@@ -1726,10 +1778,29 @@ launch_claude_with_flow() {
 
 # Check and setup project
 check_and_setup_project() {
+    if [[ "$ENHANCED_MESSAGING_AVAILABLE" == "true" ]]; then
+        # Use enhanced messaging with intelligent setup detection
+        enhanced_check_and_setup_project
+        return $?
+    else
+        # Fallback to original function
+        check_and_setup_project_original
+        return $?
+    fi
+}
+
+# Original function preserved for fallback
+check_and_setup_project_original() {
     if [[ ! -f "CLAUDE.md" ]] && [[ -w . ]]; then
-        echo "📝 Setting up Claude Flow for this project..."
+        echo -e "${BLUE}📝${NC} ${BOLD}Setting up Claude Flow for this project...${NC}"
         if command -v npx >/dev/null 2>&1; then
-            npx claude-flow@alpha init >/dev/null 2>&1 || true
+            if timeout 10s npx claude-flow@alpha init >/dev/null 2>&1; then
+                echo -e "${GREEN}✅${NC} Advanced AI features configured"
+            else
+                echo -e "${YELLOW}⚠️${NC} Using standard configuration"
+            fi
+        else
+            echo -e "${YELLOW}⚠️${NC} Node.js not available - basic setup only"
         fi
     fi
 }
