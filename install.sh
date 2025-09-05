@@ -672,16 +672,21 @@ install_with_progress() {
         "Preparing first conversation experience"
     )
     
-    # Create associative array for step descriptions (bash 3.x compatible)
-    declare -A installation_steps
-    installation_steps["system_check"]="Checking system requirements and dependencies"
-    installation_steps["node_install"]="Installing Node.js (AI foundation)"
-    installation_steps["claude_code_install"]="Installing Claude Code (smart features)"
-    installation_steps["claude_flow_install"]="Setting up Claude Flow (orchestration)"
-    installation_steps["hive_helper_install"]="Installing Hive Studio Helper System (project management)"
-    installation_steps["validation"]="Validating installation and testing functionality"
-    installation_steps["shortcuts"]="Creating desktop shortcuts and aliases"
-    installation_steps["welcome"]="Preparing first conversation experience"
+    # Helper function to get step description by name (bash 3.x compatible)
+    get_step_description() {
+        local step_name="$1"
+        case "$step_name" in
+            "system_check") echo "Checking system requirements and dependencies" ;;
+            "node_install") echo "Installing Node.js (AI foundation)" ;;
+            "claude_code_install") echo "Installing Claude Code (smart features)" ;;
+            "claude_flow_install") echo "Setting up Claude Flow (orchestration)" ;;
+            "hive_helper_install") echo "Installing Hive Studio Helper System (project management)" ;;
+            "validation") echo "Validating installation and testing functionality" ;;
+            "shortcuts") echo "Creating desktop shortcuts and aliases" ;;
+            "welcome") echo "Preparing first conversation experience" ;;
+            *) echo "$step_name" ;;
+        esac
+    }
     
     local total_steps=${#step_names[@]}
     echo -e "${BLUE}🎯${NC} ${BOLD}Installation Plan: $total_steps steps to complete${NC}\n"
@@ -690,56 +695,56 @@ install_with_progress() {
     local failed_steps=0
     
     # Step 1: System Requirements
-    if execute_step_with_status "system_check" "${installation_steps[system_check]}" validate_system_requirements; then
+    if execute_step_with_status "system_check" "$(get_step_description "system_check")" validate_system_requirements; then
         : # Success handled by execute_step_with_status
     else
         failed_steps=$((failed_steps + 1))
     fi
     
     # Step 2: Node.js Installation 
-    if execute_step_with_status "node_install" "${installation_steps[node_install]}" install_node_and_dependencies; then
+    if execute_step_with_status "node_install" "$(get_step_description "node_install")" install_node_and_dependencies; then
         : # Success handled by execute_step_with_status
     else
         failed_steps=$((failed_steps + 1))
     fi
     
     # Step 3: Claude Code Installation
-    if execute_step_with_status "claude_code_install" "${installation_steps[claude_code_install]}" install_claude_code_with_retry; then
+    if execute_step_with_status "claude_code_install" "$(get_step_description "claude_code_install")" install_claude_code_with_retry; then
         : # Success handled by execute_step_with_status
     else
         failed_steps=$((failed_steps + 1))
     fi
     
     # Step 4: Claude Flow Installation
-    if execute_step_with_status "claude_flow_install" "${installation_steps[claude_flow_install]}" install_claude_flow_with_config; then
+    if execute_step_with_status "claude_flow_install" "$(get_step_description "claude_flow_install")" install_claude_flow_with_config; then
         : # Success handled by execute_step_with_status
     else
         failed_steps=$((failed_steps + 1))
     fi
     
     # Step 5: Hive Studio Helper System Installation
-    if execute_step_with_status "hive_helper_install" "${installation_steps[hive_helper_install]}" install_hive_studio_helper_system; then
+    if execute_step_with_status "hive_helper_install" "$(get_step_description "hive_helper_install")" install_hive_studio_helper_system; then
         : # Success handled by execute_step_with_status
     else
         failed_steps=$((failed_steps + 1))
     fi
     
     # Step 6: Installation Validation
-    if execute_step_with_status "validation" "${installation_steps[validation]}" run_installation_validation; then
+    if execute_step_with_status "validation" "$(get_step_description "validation")" run_installation_validation; then
         : # Success handled by execute_step_with_status
     else
         failed_steps=$((failed_steps + 1))
     fi
     
     # Step 7: Desktop Shortcuts
-    if execute_step_with_status "shortcuts" "${installation_steps[shortcuts]}" create_desktop_shortcuts; then
+    if execute_step_with_status "shortcuts" "$(get_step_description "shortcuts")" create_desktop_shortcuts; then
         : # Success handled by execute_step_with_status
     else
         failed_steps=$((failed_steps + 1))
     fi
     
     # Step 8: Welcome Preparation
-    if execute_step_with_status "welcome" "${installation_steps[welcome]}" prepare_first_conversation; then
+    if execute_step_with_status "welcome" "$(get_step_description "welcome")" prepare_first_conversation; then
         : # Success handled by execute_step_with_status
     else
         failed_steps=$((failed_steps + 1))
